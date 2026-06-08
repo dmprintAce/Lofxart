@@ -2,7 +2,11 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Expérience Sonore Nocturne - V5 Active Black Hole Core</title>
     <style>
         * {
@@ -409,12 +413,30 @@
         async function startExperience() {
             if (isSetup) return;
 
+            await enterFullscreenMode();
+
             uiOverlay.classList.add('fade-out');
             initAudioContext();
             animate();
             isSetup = true;
 
             await loadAndPlayIntegratedAudio();
+        }
+
+        async function enterFullscreenMode() {
+            const root = document.documentElement;
+
+            try {
+                if (root.requestFullscreen) {
+                    await root.requestFullscreen();
+                } else if (root.webkitRequestFullscreen) {
+                    root.webkitRequestFullscreen();
+                } else if (root.msRequestFullscreen) {
+                    root.msRequestFullscreen();
+                }
+            } catch (err) {
+                console.warn("Le plein écran n'a pas pu être activé automatiquement sur ce navigateur :", err);
+            }
         }
 
         function initAudioContext() {
