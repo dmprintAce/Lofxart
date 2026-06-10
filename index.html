@@ -361,6 +361,11 @@
         let phaserDelay = null;
         let phaserDelayFeedback = null;
         let phaserDelayWetGain = null;
+        let horizontalSweepFilter = null;
+        let horizontalSweepWetGain = null;
+        let verticalWaveDelay = null;
+        let verticalWaveFeedback = null;
+        let verticalWaveWetGain = null;
         let reverbConvolver = null;
         let reverbWetGain = null;
         let tapDelay = null;
@@ -372,6 +377,8 @@
         // Intensités FX contrôlées par les gestes
         let fxVertical = 0;
         let fxHorizontal = 0;
+        let fxHorizontalAlt = 0;
+        let fxVerticalWave = 0;
         let fxDiagonal = 0;
         let fxSpeed = 0; // -1 = slow down, +1 = speed up
         let fxGlitch = 0;
@@ -485,11 +492,11 @@
 
             // Remplace le flash blanc par une onde douce plus sûre visuellement.
             energyWaves.push({
-                radius: currentHoleRadius * 0.95,
-                alpha: 0.58,
-                width: 10,
+                radius: currentHoleRadius * 0.82,
+                alpha: 0.34,
+                width: 26,
                 hue: targetHue,
-                speed: Math.max(7, minScreenDim * 0.016)
+                speed: Math.max(5.5, minScreenDim * 0.013)
             });
 
             fxTapEcho = Math.min(1.0, fxTapEcho + 0.95);
@@ -565,7 +572,7 @@
 
         function setupAudioFxChain(sourceNode) {
             dryGain = audioCtx.createGain();
-            dryGain.gain.value = 0.86;
+            dryGain.gain.value = 0.82;
 
             flangerDelay = audioCtx.createDelay(0.04);
             flangerDelay.delayTime.value = 0.005;
@@ -583,11 +590,11 @@
 
             phaserFilters = [];
             let previousPhaserNode = null;
-            for (let i = 0; i < 6; i++) {
+            for (let i = 0; i < 8; i++) {
                 const filter = audioCtx.createBiquadFilter();
                 filter.type = 'allpass';
-                filter.frequency.value = 260 + i * 310;
-                filter.Q.value = 1.2;
+                filter.frequency.value = 180 + i * 280;
+                filter.Q.value = 1.4;
                 phaserFilters.push(filter);
                 if (previousPhaserNode) previousPhaserNode.connect(filter);
                 previousPhaserNode = filter;
@@ -595,16 +602,32 @@
             phaserWetGain = audioCtx.createGain();
             phaserWetGain.gain.value = 0.0;
 
-            // Petit delay spatial couplé au phaser pour rendre le geste horizontal plus audible.
-            phaserDelay = audioCtx.createDelay(0.8);
+            // Delay spatial couplé au phaser pour rendre le geste horizontal très perceptible.
+            phaserDelay = audioCtx.createDelay(0.9);
             phaserDelay.delayTime.value = 0.18;
             phaserDelayFeedback = audioCtx.createGain();
             phaserDelayFeedback.gain.value = 0.0;
             phaserDelayWetGain = audioCtx.createGain();
             phaserDelayWetGain.gain.value = 0.0;
 
+            // Effet horizontal opposé : sweep filtré / espace mouvant.
+            horizontalSweepFilter = audioCtx.createBiquadFilter();
+            horizontalSweepFilter.type = 'bandpass';
+            horizontalSweepFilter.frequency.value = 780;
+            horizontalSweepFilter.Q.value = 5.0;
+            horizontalSweepWetGain = audioCtx.createGain();
+            horizontalSweepWetGain.gain.value = 0.0;
+
+            // Effet vertical opposé : vague sonore ondulatoire courte.
+            verticalWaveDelay = audioCtx.createDelay(0.55);
+            verticalWaveDelay.delayTime.value = 0.075;
+            verticalWaveFeedback = audioCtx.createGain();
+            verticalWaveFeedback.gain.value = 0.0;
+            verticalWaveWetGain = audioCtx.createGain();
+            verticalWaveWetGain.gain.value = 0.0;
+
             reverbConvolver = audioCtx.createConvolver();
-            reverbConvolver.buffer = createImpulseResponse(audioCtx, 3.0, 2.0);
+            reverbConvolver.buffer = createImpulseResponse(audioCtx, 3.4, 1.75);
             reverbWetGain = audioCtx.createGain();
             reverbWetGain.gain.value = 0.0;
 
@@ -639,6 +662,16 @@
             phaserDelay.connect(phaserDelayWetGain);
             phaserDelayWetGain.connect(analyser);
 
+            sourceNode.connect(horizontalSweepFilter);
+            horizontalSweepFilter.connect(horizontalSweepWetGain);
+            horizontalSweepWetGain.connect(analyser);
+
+            sourceNode.connect(verticalWaveDelay);
+            verticalWaveDelay.connect(verticalWaveFeedback);
+            verticalWaveFeedback.connect(verticalWaveDelay);
+            verticalWaveDelay.connect(verticalWaveWetGain);
+            verticalWaveWetGain.connect(analyser);
+
             sourceNode.connect(reverbConvolver);
             reverbConvolver.connect(reverbWetGain);
             reverbWetGain.connect(analyser);
@@ -659,30 +692,50 @@
         function updateAudioFx() {
             if (!audioCtx) return;
             const now = audioCtx.currentTime;
-            const activeFx = Math.max(fxVertical, fxHorizontal, fxDiagonal, fxGlitch, fxTapEcho);
+            const activeFx = Math.max(
+                fxVertical, fxVerticalWave, fxHorizontal, fxHorizontalAlt,
+                fxDiagonal, Math.abs(fxSpeed), fxGlitch, fxTapEcho
+            );
 
-            // Quand l'utilisateur joue avec les FX, on baisse un peu le dry pour mieux entendre les effets.
-            if (dryGain) dryGain.gain.setTargetAtTime(0.88 - activeFx * 0.22, now, 0.045);
+            // Le dry baisse davantage pendant les effets pour mieux ressentir l'impact.
+            if (dryGain) dryGain.gain.setTargetAtTime(0.86 - activeFx * 0.30, now, 0.035);
 
-            if (flangerWetGain) flangerWetGain.gain.setTargetAtTime(0.98 * fxVertical, now, 0.025);
-            if (flangerFeedback) flangerFeedback.gain.setTargetAtTime(0.68 * fxVertical, now, 0.025);
-            if (flangerLfoGain) flangerLfoGain.gain.setTargetAtTime(0.001 + 0.012 * fxVertical, now, 0.025);
-            if (flangerLfo) flangerLfo.frequency.setTargetAtTime(0.25 + 4.0 * fxVertical, now, 0.025);
+            // Vertical haut : flanger électrique accentué.
+            if (flangerWetGain) flangerWetGain.gain.setTargetAtTime(1.18 * fxVertical, now, 0.022);
+            if (flangerFeedback) flangerFeedback.gain.setTargetAtTime(0.74 * fxVertical, now, 0.022);
+            if (flangerLfoGain) flangerLfoGain.gain.setTargetAtTime(0.001 + 0.016 * fxVertical, now, 0.022);
+            if (flangerLfo) flangerLfo.frequency.setTargetAtTime(0.35 + 5.2 * fxVertical, now, 0.022);
 
-            // Phaser + Reverb horizontal renforcé : plus de wet, plus de sweep, plus de delay spatial.
-            if (phaserWetGain) phaserWetGain.gain.setTargetAtTime(1.12 * fxHorizontal, now, 0.03);
-            if (phaserDelayWetGain) phaserDelayWetGain.gain.setTargetAtTime(0.48 * fxHorizontal, now, 0.04);
-            if (phaserDelayFeedback) phaserDelayFeedback.gain.setTargetAtTime(0.18 + 0.48 * fxHorizontal, now, 0.04);
-            if (phaserDelay) phaserDelay.delayTime.setTargetAtTime(0.10 + 0.22 * fxHorizontal, now, 0.05);
-            if (reverbWetGain) reverbWetGain.gain.setTargetAtTime(0.74 * fxHorizontal, now, 0.06);
+            // Vertical bas : vague sonore ondulatoire.
+            if (verticalWaveWetGain) verticalWaveWetGain.gain.setTargetAtTime(0.86 * fxVerticalWave, now, 0.035);
+            if (verticalWaveFeedback) verticalWaveFeedback.gain.setTargetAtTime(0.18 + 0.52 * fxVerticalWave, now, 0.04);
+            if (verticalWaveDelay) {
+                const waveDelay = 0.045 + 0.07 * (0.5 + 0.5 * Math.sin(performance.now() * 0.006));
+                verticalWaveDelay.delayTime.setTargetAtTime(waveDelay, now, 0.035);
+            }
+
+            // Horizontal droite : phaser + reverb + delay spatial fort.
+            if (phaserWetGain) phaserWetGain.gain.setTargetAtTime(1.28 * fxHorizontal, now, 0.026);
+            if (phaserDelayWetGain) phaserDelayWetGain.gain.setTargetAtTime(0.62 * fxHorizontal, now, 0.035);
+            if (phaserDelayFeedback) phaserDelayFeedback.gain.setTargetAtTime(0.14 + 0.56 * fxHorizontal, now, 0.035);
+            if (phaserDelay) phaserDelay.delayTime.setTargetAtTime(0.08 + 0.26 * fxHorizontal, now, 0.04);
+            if (reverbWetGain) reverbWetGain.gain.setTargetAtTime(0.88 * fxHorizontal + 0.48 * fxHorizontalAlt, now, 0.055);
 
             if (phaserFilters.length) {
                 phaserFilters.forEach((filter, index) => {
-                    const sweep = Math.sin(performance.now() * 0.008 + index * 0.7);
-                    const freq = 220 + index * 360 + fxHorizontal * 3200 + sweep * 520 * fxHorizontal;
-                    filter.frequency.setTargetAtTime(freq, now, 0.035);
-                    filter.Q.setTargetAtTime(1.1 + fxHorizontal * 7.5, now, 0.035);
+                    const sweep = Math.sin(performance.now() * 0.010 + index * 0.62);
+                    const freq = 140 + index * 300 + fxHorizontal * 4200 + sweep * 880 * fxHorizontal;
+                    filter.frequency.setTargetAtTime(freq, now, 0.026);
+                    filter.Q.setTargetAtTime(1.4 + fxHorizontal * 9.0, now, 0.028);
                 });
+            }
+
+            // Horizontal gauche : sweep filtré / mouvement spectral opposé.
+            if (horizontalSweepWetGain) horizontalSweepWetGain.gain.setTargetAtTime(0.98 * fxHorizontalAlt, now, 0.03);
+            if (horizontalSweepFilter) {
+                const sweep = 520 + 3600 * (0.5 + 0.5 * Math.sin(performance.now() * 0.007));
+                horizontalSweepFilter.frequency.setTargetAtTime(sweep, now, 0.035);
+                horizontalSweepFilter.Q.setTargetAtTime(2.5 + fxHorizontalAlt * 12.0, now, 0.035);
             }
 
             if (tapDelayWetGain) tapDelayWetGain.gain.setTargetAtTime(0.82 * fxTapEcho, now, 0.025);
@@ -691,10 +744,9 @@
             if (bitcrusherWetGain) bitcrusherWetGain.gain.setTargetAtTime(0.70 * fxGlitch, now, 0.018);
 
             if (localAudioElement) {
-                // Contrôle jouable de la vitesse :
-                // fxSpeed > 0 accélère, fxSpeed < 0 ralentit.
-                const targetRate = Math.max(0.58, Math.min(1.68, 1.0 + fxSpeed * 0.62 + fxGlitch * 0.08));
-                localAudioElement.playbackRate += (targetRate - localAudioElement.playbackRate) * 0.20;
+                // Slow down plus accessible : plage étendue et retour progressif.
+                const targetRate = Math.max(0.42, Math.min(1.75, 1.0 + fxSpeed * 0.68 + fxGlitch * 0.06));
+                localAudioElement.playbackRate += (targetRate - localAudioElement.playbackRate) * 0.24;
             }
         }
 
@@ -735,33 +787,51 @@
 
             const absX = Math.abs(dx);
             const absY = Math.abs(dy);
-            const intensity = Math.min(1.0, distance / 24);
+            const intensity = Math.min(1.0, distance / 22);
 
-            if (speed > 1.55 && distance > 24) triggerGlitch();
+            if (speed > 1.65 && distance > 24) triggerGlitch();
 
-            if (absY > absX * 1.35 && distance > 8) {
-                fxVertical = Math.min(1.0, Math.max(fxVertical, 0.42) + intensity * 0.72);
-                showFxLabel('Flanger électrique');
-                spawnElectricDust(x, y, 8 + Math.floor(intensity * 12), 205);
-            } else if (absX > absY * 1.35 && distance > 8) {
-                fxHorizontal = Math.min(1.0, Math.max(fxHorizontal, 0.62) + intensity * 0.82);
-                showFxLabel('Phaser + Reverb');
-                spawnElectricDust(x, y, 5 + Math.floor(intensity * 8), targetHue + 20);
-            } else if (distance > 10) {
-                fxDiagonal = Math.min(1.0, Math.max(fxDiagonal, 0.48) + intensity * 0.82);
+            // La diagonale passe avant vertical/horizontal pour que le slow down fonctionne vraiment.
+            const isDiagonal = distance > 10 && absX > 5 && absY > 5 && (Math.min(absX, absY) / Math.max(absX, absY)) > 0.34;
+
+            if (isDiagonal) {
+                fxDiagonal = Math.min(1.0, Math.max(fxDiagonal, 0.55) + intensity * 0.78);
 
                 // Diagonale vers le haut = Speed Up, diagonale vers le bas = Slow Down.
-                // Sur écran, y diminue quand on monte.
                 const direction = dy < 0 ? 1 : -1;
-                fxSpeed += direction * intensity * 0.52;
+                fxSpeed += direction * intensity * 0.72;
                 fxSpeed = Math.max(-1.0, Math.min(1.0, fxSpeed));
 
                 if (direction > 0) {
                     showFxLabel('Speed Up');
-                    spawnElectricDust(x, y, 8 + Math.floor(intensity * 12), 35);
+                    spawnElectricDust(x, y, 9 + Math.floor(intensity * 13), 35);
                 } else {
                     showFxLabel('Slow Down');
-                    spawnElectricDust(x, y, 8 + Math.floor(intensity * 12), 185);
+                    spawnElectricDust(x, y, 10 + Math.floor(intensity * 14), 185);
+                }
+            } else if (absX > absY * 1.25 && distance > 8) {
+                if (dx > 0) {
+                    fxHorizontal = Math.min(1.0, Math.max(fxHorizontal, 0.68) + intensity * 0.84);
+                    fxHorizontalAlt *= 0.72;
+                    showFxLabel('Phaser + Reverb');
+                    spawnElectricDust(x, y, 7 + Math.floor(intensity * 10), targetHue + 35);
+                } else {
+                    fxHorizontalAlt = Math.min(1.0, Math.max(fxHorizontalAlt, 0.62) + intensity * 0.82);
+                    fxHorizontal *= 0.78;
+                    showFxLabel('Sweep Spatial');
+                    spawnElectricDust(x, y, 7 + Math.floor(intensity * 10), 275);
+                }
+            } else if (absY > absX * 1.25 && distance > 8) {
+                if (dy < 0) {
+                    fxVertical = Math.min(1.0, Math.max(fxVertical, 0.50) + intensity * 0.82);
+                    fxVerticalWave *= 0.70;
+                    showFxLabel('Flanger électrique');
+                    spawnElectricDust(x, y, 10 + Math.floor(intensity * 12), 205);
+                } else {
+                    fxVerticalWave = Math.min(1.0, Math.max(fxVerticalWave, 0.55) + intensity * 0.86);
+                    fxVertical *= 0.76;
+                    showFxLabel('Vague sonore');
+                    spawnElectricDust(x, y, 10 + Math.floor(intensity * 12), 165);
                 }
             }
 
@@ -781,7 +851,7 @@
         function endPointerInteraction() {
             pointerActive = false;
             fxIsHeld = false;
-            showFxLabel('Retour vitesse normale');
+            showFxLabel('Retour naturel');
         }
 
         async function startExperience() {
@@ -989,29 +1059,33 @@
             if (fxIsHeld) {
                 // Pendant que l'utilisateur maintient le doigt/la souris, les effets restent jouables.
                 fxVertical *= 0.992;
+                fxVerticalWave *= 0.992;
                 fxHorizontal *= 0.994;
+                fxHorizontalAlt *= 0.994;
                 fxDiagonal *= 0.990;
-                fxSpeed *= 0.992;
+                fxSpeed *= 0.994;
             } else {
                 // Au relâchement, les effets et la vitesse reviennent naturellement à la normale.
-                fxVertical *= 0.90;
-                fxHorizontal *= 0.90;
-                fxDiagonal *= 0.88;
-                fxSpeed *= 0.84;
+                fxVertical *= 0.88;
+                fxVerticalWave *= 0.88;
+                fxHorizontal *= 0.88;
+                fxHorizontalAlt *= 0.88;
+                fxDiagonal *= 0.86;
+                fxSpeed *= 0.80;
             }
             fxGlitch *= 0.70;
             fxFlash *= 0.74;
             fxTapEcho *= 0.965;
             updateAudioFx();
 
-            const time = performance.now() * 0.001 * (1.0 + smoothBass * 0.4 + Math.abs(fxSpeed) * 0.55 + fxDiagonal * 0.18);
+            const time = performance.now() * 0.001 * (1.0 + smoothBass * 0.4 + Math.abs(fxSpeed) * 0.62 + fxDiagonal * 0.16 + fxVerticalWave * 0.22);
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
             const minScreenDim = Math.min(canvas.width, canvas.height);
             
             const centralPulse = smoothBass * (minScreenDim * 0.08);
             const holeRadius = minScreenDim * 0.16 + centralPulse;
-            const glowRadius = minScreenDim * 0.42 + (smoothBass * 0.15 + smoothMid * 0.20 + fxHorizontal * 0.42) * minScreenDim;
+            const glowRadius = minScreenDim * 0.42 + (smoothBass * 0.15 + smoothMid * 0.20 + fxHorizontal * 0.42 + fxHorizontalAlt * 0.30 + fxVerticalWave * 0.18) * minScreenDim;
             
             const viewOffsetX = (centerX - mouseX);
             const viewOffsetY = (centerY - mouseY);
@@ -1076,8 +1150,8 @@
 
             // 1. Rendu du Halo (Glow) Arrière
             const glowGrad = ctx.createRadialGradient(coreX, coreY, holeRadius * 0.5, coreX, coreY, glowRadius);
-            glowGrad.addColorStop(0, `hsla(${baseHue + fxVertical * 25}, 90%, 55%, ${0.28 * (0.6 + smoothBass * 0.4 + fxHorizontal * 0.85)})`);
-            glowGrad.addColorStop(0.25, `hsla(${baseHue + 25 + fxDiagonal * 25 + fxSpeed * 45}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5 + fxHorizontal * 1.25 + Math.abs(fxSpeed) * 0.7)})`);
+            glowGrad.addColorStop(0, `hsla(${baseHue + fxVertical * 25 + fxVerticalWave * 70}, 90%, 55%, ${0.28 * (0.6 + smoothBass * 0.4 + fxHorizontal * 0.85 + fxVerticalWave * 0.45)})`);
+            glowGrad.addColorStop(0.25, `hsla(${baseHue + 25 + fxDiagonal * 25 + fxSpeed * 55 + fxHorizontalAlt * 90}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5 + fxHorizontal * 1.25 + fxHorizontalAlt * 0.9 + Math.abs(fxSpeed) * 0.8)})`);
             glowGrad.addColorStop(0.6, `hsla(${baseHue - 20}, 70%, 30%, 0.03)`);
             glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = glowGrad;
@@ -1195,6 +1269,20 @@
                 }
             }
 
+            // 3B2. Vagues sonores ondulatoires liées au geste vertical opposé
+            if (fxVerticalWave > 0.04) {
+                ctx.globalCompositeOperation = 'lighter';
+                const waveCount = window.innerWidth < 768 ? 3 : 5;
+                for (let vw = 0; vw < waveCount; vw++) {
+                    const rr = holeRadius * (1.22 + vw * 0.20 + Math.sin(time * 2.0 + vw) * 0.035);
+                    ctx.strokeStyle = `hsla(${baseHue + 110}, 100%, 70%, ${0.08 + fxVerticalWave * 0.16})`;
+                    ctx.lineWidth = 1.0 + fxVerticalWave * 1.4;
+                    ctx.beginPath();
+                    ctx.arc(coreX, coreY, rr, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
             // 3C. Micro-lueur douce liée au glitch / mouvement rapide.
             // Pas de flash blanc violent : sécurité visuelle améliorée.
             if (fxFlash > 0.03) {
@@ -1214,8 +1302,8 @@
             for (let w = energyWaves.length - 1; w >= 0; w--) {
                 const wave = energyWaves[w];
                 wave.radius += wave.speed;
-                wave.alpha *= 0.965;
-                wave.width += 0.42;
+                wave.alpha *= 0.955;
+                wave.width += 1.25;
 
                 const maxRadius = Math.max(canvas.width, canvas.height) * 0.82;
                 if (wave.alpha < 0.018 || wave.radius > maxRadius) {
@@ -1228,9 +1316,9 @@
                     coreX, coreY, wave.radius + wave.width * 2.2
                 );
                 waveGrad.addColorStop(0.00, 'rgba(0,0,0,0)');
-                waveGrad.addColorStop(0.42, `hsla(${wave.hue}, 100%, 68%, ${wave.alpha * 0.10})`);
-                waveGrad.addColorStop(0.50, `hsla(${wave.hue + 28}, 100%, 78%, ${wave.alpha * 0.34})`);
-                waveGrad.addColorStop(0.58, `hsla(${wave.hue}, 100%, 62%, ${wave.alpha * 0.10})`);
+                waveGrad.addColorStop(0.36, `hsla(${wave.hue}, 100%, 68%, ${wave.alpha * 0.035})`);
+                waveGrad.addColorStop(0.50, `hsla(${wave.hue + 28}, 100%, 78%, ${wave.alpha * 0.13})`);
+                waveGrad.addColorStop(0.68, `hsla(${wave.hue}, 100%, 62%, ${wave.alpha * 0.035})`);
                 waveGrad.addColorStop(1.00, 'rgba(0,0,0,0)');
 
                 ctx.fillStyle = waveGrad;
@@ -1238,8 +1326,8 @@
                 ctx.arc(coreX, coreY, wave.radius + wave.width * 2.2, 0, Math.PI * 2);
                 ctx.fill();
 
-                ctx.strokeStyle = `hsla(${wave.hue + 15}, 100%, 78%, ${wave.alpha * 0.42})`;
-                ctx.lineWidth = Math.max(1.0, wave.width * 0.22);
+                ctx.strokeStyle = `hsla(${wave.hue + 15}, 100%, 78%, ${wave.alpha * 0.10})`;
+                ctx.lineWidth = Math.max(1.0, wave.width * 0.08);
                 ctx.beginPath();
                 ctx.arc(coreX, coreY, wave.radius, 0, Math.PI * 2);
                 ctx.stroke();
@@ -1251,12 +1339,12 @@
             const ringCount = window.innerWidth < 768 ? 3 : 5;
             const ringTime = time * 1.8;
             for (let j = 0; j < ringCount; j++) {
-                const ringRadius = holeRadius * (1.05 + j * 0.05 + fxHorizontal * 0.070);
+                const ringRadius = holeRadius * (1.05 + j * 0.05 + fxHorizontal * 0.070 + fxHorizontalAlt * 0.050);
                 const ringPoints = 64;
                 ctx.beginPath();
                 for (let i = 0; i <= ringPoints; i++) {
                     const angle = (i / ringPoints) * Math.PI * 2;
-                    const warp = Math.sin(angle * (3 + j) + ringTime) * (5 + smoothBass * 18 + fxVertical * 18) + Math.cos(angle * 2 - ringTime * 0.8) * (3 + smoothHigh * 8 + fxHorizontal * 12);
+                    const warp = Math.sin(angle * (3 + j) + ringTime) * (5 + smoothBass * 18 + fxVertical * 18 + fxVerticalWave * 22) + Math.cos(angle * 2 - ringTime * 0.8) * (3 + smoothHigh * 8 + fxHorizontal * 14 + fxHorizontalAlt * 18);
                     const r = ringRadius + warp;
                     const x = coreX + Math.cos(angle) * r;
                     const y = coreY + Math.sin(angle) * r;
