@@ -411,6 +411,8 @@
         let activeTouchId = null;
         let lastTouchEventTime = 0;
         let gestureMoved = false;
+        let lastTapFxTime = 0;
+        let tapStartTime = 0;
 
         let smoothBass = 0;
         let smoothMid = 0;
@@ -471,6 +473,7 @@
             const t = e.touches[0];
             activeTouchId = t.identifier;
             lastTouchEventTime = performance.now();
+            tapStartTime = lastTouchEventTime;
             targetMX = t.clientX;
             targetMY = t.clientY;
             beginPointerInteraction(t.clientX, t.clientY);
@@ -489,8 +492,22 @@
 
         canvas.addEventListener('touchend', (e) => {
             if (e.cancelable) e.preventDefault();
-            lastTouchEventTime = performance.now();
+
+            const now = performance.now();
+            const t = getActiveTouch(e);
+            const tapDuration = now - tapStartTime;
+            const totalDistance = Math.hypot(lastPointerX - gestureStartX, lastPointerY - gestureStartY);
+
+            lastTouchEventTime = now;
             activeTouchId = null;
+
+            // Sur mobile, le tap doit être déclenché ici, car preventDefault peut supprimer le click synthétique.
+            if (!gestureMoved && totalDistance < 9 && tapDuration < 420) {
+                const tapX = t ? t.clientX : lastPointerX;
+                const tapY = t ? t.clientY : lastPointerY;
+                triggerTapFx(tapX, tapY);
+            }
+
             endPointerInteraction();
         }, { passive: false });
 
@@ -524,13 +541,13 @@
             endPointerInteraction();
         }, { passive: true });
 
-        // Clic générant une déflagration de feux d'artifice éjectés à haute vélocité
-        canvas.addEventListener('click', (e) => {
+        function triggerTapFx(x, y) {
             if (!isSetup) return;
-            if (gestureMoved && performance.now() - lastTouchEventTime < 900) {
-                gestureMoved = false;
-                return;
-            }
+
+            const now = performance.now();
+            // Anti double-déclenchement entre touchend et click synthétique.
+            if (now - lastTapFxTime < 180) return;
+            lastTapFxTime = now;
 
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
@@ -539,42 +556,53 @@
             const nextIndex = (currentIndex + 1) % colorPalette.length;
             targetHue = colorPalette[nextIndex];
 
-            const burstCount = window.innerWidth < 768 ? 42 : 82; 
+            const burstCount = window.innerWidth < 768 ? 38 : 82; 
             const minScreenDim = Math.min(canvas.width, canvas.height);
             const currentHoleRadius = minScreenDim * 0.16;
 
-            // Remplace le flash blanc par une onde douce plus sûre visuellement.
+            // Onde lumineuse douce + diffuse.
             energyWaves.push({
                 radius: currentHoleRadius * 0.82,
-                alpha: 0.34,
-                width: 26,
+                alpha: 0.36,
+                width: 30,
                 hue: targetHue,
                 speed: Math.max(5.5, minScreenDim * 0.013)
             });
 
-            fxTapEcho = Math.min(1.0, fxTapEcho + 0.95);
+            // Echo delay de tap.
+            fxTapEcho = Math.min(1.0, fxTapEcho + 1.0);
             showFxLabel('Echo Delay');
 
             for (let i = 0; i < burstCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
-                const isFirework = Math.random() < 0.48; 
+                const isFirework = Math.random() < 0.42; 
 
-                const radialSpeed = isFirework ? (2.6 + Math.random() * 4.8) : (0.9 + Math.random() * 2.0); 
-                const swirlSpeed = isFirework ? ((Math.random() - 0.5) * 1.2) : ((1.6 + Math.random() * 3.2) * (Math.random() > 0.5 ? 1 : -1));
+                const radialSpeed = isFirework ? (2.3 + Math.random() * 4.2) : (0.8 + Math.random() * 1.8); 
+                const swirlSpeed = isFirework ? ((Math.random() - 0.5) * 1.0) : ((1.4 + Math.random() * 2.8) * (Math.random() > 0.5 ? 1 : -1));
 
                 sparks.push({
                     x: centerX + Math.cos(angle) * currentHoleRadius,
                     y: centerY + Math.sin(angle) * currentHoleRadius,
                     vx: Math.cos(angle) * radialSpeed - Math.sin(angle) * swirlSpeed,
                     vy: Math.sin(angle) * radialSpeed + Math.cos(angle) * swirlSpeed,
-                    alpha: 0.85,
-                    decay: isFirework ? (0.008 + Math.random() * 0.009) : (0.01 + Math.random() * 0.012), 
-                    size: isFirework ? (0.5 + Math.random() * 1.1) : (0.4 + Math.random() * 1.0), 
+                    alpha: 0.82,
+                    decay: isFirework ? (0.009 + Math.random() * 0.010) : (0.011 + Math.random() * 0.012), 
+                    size: isFirework ? (0.5 + Math.random() * 1.0) : (0.4 + Math.random() * 0.9), 
                     hue: targetHue + (Math.random() - 0.5) * (isFirework ? 42 : 24),
                     isFirework: isFirework,
                     friction: isFirework ? 0.982 : 0.97
                 });
             }
+        }
+
+        // Clic souris / desktop.
+        canvas.addEventListener('click', (e) => {
+            if (!isSetup) return;
+
+            // Si c'était un vrai swipe tactile, on ignore le click synthétique.
+            if (performance.now() - lastTouchEventTime < 900) return;
+
+            triggerTapFx(e.clientX, e.clientY);
         });
 
 
@@ -843,7 +871,7 @@
             const totalDistance = Math.hypot(totalDx, totalDy);
             const speed = distance / dt;
 
-            if (totalDistance > 7) gestureMoved = true;
+            if (totalDistance > (isTouch ? 11 : 7)) gestureMoved = true;
 
             const absX = Math.abs(dx);
             const absY = Math.abs(dy);
