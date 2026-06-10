@@ -2,12 +2,8 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#000000">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Expérience Sonore Nocturne - Black Hole Core</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Expérience Sonore Nocturne - V5 Active Black Hole Core</title>
     <style>
         * {
             box-sizing: border-box;
@@ -209,6 +205,37 @@
         }
 
 
+
+        #fx-hud {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            z-index: 12;
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(4, 4, 8, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 0.62rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            pointer-events: none;
+            user-select: none;
+            opacity: 0.0;
+            transform: translateY(-6px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        #fx-hud.visible {
+            opacity: 1.0;
+            transform: translateY(0);
+        }
+        #fx-hud strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
         @media (max-width: 768px) {
             #controls-container {
                 width: calc(100% - 32px);
@@ -263,9 +290,11 @@
         }
     </style>
 
+    <div id="fx-hud">FX : <strong>Libre</strong></div>
+
     <div id="ui-overlay" onclick="startExperience()">
         <div id="status-text">CLIQUEZ POUR LANCER L'EXPÉRIENCE</div>
-        <div id="sub-status-text">L0fxArt - Down Now</div>
+        <div id="sub-status-text">Audio intégré : down now - Remix</div>
     </div>
 
     <div id="controls-container">
@@ -291,6 +320,7 @@
         const canvas = document.getElementById('visualizer');
         const ctx = canvas.getContext('2d');
         const uiOverlay = document.getElementById('ui-overlay');
+        const fxHud = document.getElementById('fx-hud');
         const playBtn = document.getElementById('play-btn');
         const playIcon = document.getElementById('play-icon');
         const pauseIcon = document.getElementById('pause-icon');
@@ -318,6 +348,11 @@
         let targetMX = window.innerWidth / 2;
         let targetMY = window.innerHeight / 2;
         const mouseEasing = 0.04;
+
+        let pointerActive = false;
+        let lastPointerX = window.innerWidth / 2;
+        let lastPointerY = window.innerHeight / 2;
+        let lastPointerTime = performance.now();
 
         let smoothBass = 0;
         let smoothMid = 0;
@@ -372,6 +407,25 @@
             }
         }, { passive: true });
 
+
+        window.addEventListener('pointerdown', (e) => {
+            beginPointerInteraction(e.clientX, e.clientY);
+        }, { passive: true });
+
+        window.addEventListener('pointermove', (e) => {
+            targetMX = e.clientX;
+            targetMY = e.clientY;
+            if (pointerActive) handleGestureMove(e.clientX, e.clientY);
+        }, { passive: true });
+
+        window.addEventListener('pointerup', () => {
+            endPointerInteraction();
+        }, { passive: true });
+
+        window.addEventListener('pointercancel', () => {
+            endPointerInteraction();
+        }, { passive: true });
+
         // Clic générant une déflagration de feux d'artifice éjectés à haute vélocité
         canvas.addEventListener('click', (e) => {
             if (!isSetup) return;
@@ -382,6 +436,8 @@
             const currentIndex = colorPalette.indexOf(targetHue);
             const nextIndex = (currentIndex + 1) % colorPalette.length;
             targetHue = colorPalette[nextIndex];
+            fxFlash = Math.min(1.0, fxFlash + 0.55);
+            showFxLabel('Couleur + Dust');
 
             const burstCount = window.innerWidth < 768 ? 50 : 110; 
             const minScreenDim = Math.min(canvas.width, canvas.height);
@@ -410,10 +466,216 @@
             }
         });
 
+
+        function showFxLabel(label) {
+            if (!fxHud) return;
+            fxHud.innerHTML = `FX : <strong>${label}</strong>`;
+            fxHud.classList.add('visible');
+            if (fxLabelTimeout) clearTimeout(fxLabelTimeout);
+            fxLabelTimeout = setTimeout(() => fxHud.classList.remove('visible'), 900);
+        }
+
+        function createImpulseResponse(context, duration = 2.2, decay = 2.4) {
+            const rate = context.sampleRate;
+            const length = Math.floor(rate * duration);
+            const impulse = context.createBuffer(2, length, rate);
+            for (let channel = 0; channel < 2; channel++) {
+                const data = impulse.getChannelData(channel);
+                for (let i = 0; i < length; i++) {
+                    const t = i / length;
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+                }
+            }
+            return impulse;
+        }
+
+        function createBitcrusher(context, bits = 5, normfreq = 0.18) {
+            const node = context.createScriptProcessor(1024, 1, 1);
+            let phaser = 0;
+            let last = 0;
+            const step = Math.pow(0.5, bits);
+
+            node.onaudioprocess = function(event) {
+                const input = event.inputBuffer.getChannelData(0);
+                const output = event.outputBuffer.getChannelData(0);
+                for (let i = 0; i < input.length; i++) {
+                    phaser += normfreq;
+                    if (phaser >= 1.0) {
+                        phaser -= 1.0;
+                        last = step * Math.floor(input[i] / step + 0.5);
+                    }
+                    output[i] = last;
+                }
+            };
+            return node;
+        }
+
+        function setupAudioFxChain(sourceNode) {
+            dryGain = audioCtx.createGain();
+            dryGain.gain.value = 0.92;
+
+            flangerDelay = audioCtx.createDelay(0.03);
+            flangerDelay.delayTime.value = 0.004;
+            flangerFeedback = audioCtx.createGain();
+            flangerFeedback.gain.value = 0.0;
+            flangerWetGain = audioCtx.createGain();
+            flangerWetGain.gain.value = 0.0;
+            flangerLfo = audioCtx.createOscillator();
+            flangerLfo.frequency.value = 0.18;
+            flangerLfoGain = audioCtx.createGain();
+            flangerLfoGain.gain.value = 0.001;
+            flangerLfo.connect(flangerLfoGain);
+            flangerLfoGain.connect(flangerDelay.delayTime);
+            flangerLfo.start();
+
+            phaserFilters = [];
+            let previousPhaserNode = null;
+            for (let i = 0; i < 4; i++) {
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'allpass';
+                filter.frequency.value = 450 + i * 260;
+                filter.Q.value = 0.8;
+                phaserFilters.push(filter);
+                if (previousPhaserNode) previousPhaserNode.connect(filter);
+                previousPhaserNode = filter;
+            }
+            phaserWetGain = audioCtx.createGain();
+            phaserWetGain.gain.value = 0.0;
+
+            reverbConvolver = audioCtx.createConvolver();
+            reverbConvolver.buffer = createImpulseResponse(audioCtx);
+            reverbWetGain = audioCtx.createGain();
+            reverbWetGain.gain.value = 0.0;
+
+            bitcrusherNode = createBitcrusher(audioCtx, 5, 0.16);
+            bitcrusherWetGain = audioCtx.createGain();
+            bitcrusherWetGain.gain.value = 0.0;
+
+            sourceNode.connect(dryGain);
+            dryGain.connect(analyser);
+
+            sourceNode.connect(flangerDelay);
+            flangerDelay.connect(flangerFeedback);
+            flangerFeedback.connect(flangerDelay);
+            flangerDelay.connect(flangerWetGain);
+            flangerWetGain.connect(analyser);
+
+            sourceNode.connect(phaserFilters[0]);
+            phaserFilters[phaserFilters.length - 1].connect(phaserWetGain);
+            phaserWetGain.connect(analyser);
+
+            sourceNode.connect(reverbConvolver);
+            reverbConvolver.connect(reverbWetGain);
+            reverbWetGain.connect(analyser);
+
+            sourceNode.connect(bitcrusherNode);
+            bitcrusherNode.connect(bitcrusherWetGain);
+            bitcrusherWetGain.connect(analyser);
+
+            analyser.connect(audioCtx.destination);
+        }
+
+        function updateAudioFx() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+
+            if (flangerWetGain) flangerWetGain.gain.setTargetAtTime(0.65 * fxVertical, now, 0.035);
+            if (flangerFeedback) flangerFeedback.gain.setTargetAtTime(0.42 * fxVertical, now, 0.035);
+            if (flangerLfoGain) flangerLfoGain.gain.setTargetAtTime(0.001 + 0.006 * fxVertical, now, 0.035);
+            if (flangerLfo) flangerLfo.frequency.setTargetAtTime(0.2 + 1.8 * fxVertical, now, 0.035);
+
+            if (phaserWetGain) phaserWetGain.gain.setTargetAtTime(0.58 * fxHorizontal, now, 0.045);
+            if (reverbWetGain) reverbWetGain.gain.setTargetAtTime(0.34 * fxHorizontal, now, 0.06);
+
+            if (phaserFilters.length) {
+                phaserFilters.forEach((filter, index) => {
+                    const freq = 420 + index * 250 + fxHorizontal * 1200 + Math.sin(performance.now() * 0.004 + index) * 140 * fxHorizontal;
+                    filter.frequency.setTargetAtTime(freq, now, 0.05);
+                    filter.Q.setTargetAtTime(0.8 + fxHorizontal * 3.2, now, 0.05);
+                });
+            }
+
+            if (bitcrusherWetGain) bitcrusherWetGain.gain.setTargetAtTime(0.85 * fxGlitch, now, 0.025);
+
+            if (localAudioElement) {
+                const targetRate = 1.0 + fxDiagonal * 0.38 + fxGlitch * 0.18;
+                localAudioElement.playbackRate += (targetRate - localAudioElement.playbackRate) * 0.18;
+            }
+        }
+
+        function triggerGlitch() {
+            fxGlitch = Math.min(1.0, fxGlitch + 0.95);
+            fxFlash = Math.min(1.0, fxFlash + 0.85);
+            showFxLabel('Glitch');
+        }
+
+        function spawnElectricDust(x, y, count, hueBase) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 0.7 + Math.random() * 2.2;
+                sparks.push({
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    alpha: 0.85,
+                    decay: 0.015 + Math.random() * 0.018,
+                    size: 0.5 + Math.random() * 1.2,
+                    hue: hueBase + (Math.random() - 0.5) * 35,
+                    isFirework: true,
+                    friction: 0.965
+                });
+            }
+        }
+
+        function handleGestureMove(x, y) {
+            if (!isSetup) return;
+
+            const now = performance.now();
+            const dt = Math.max(16, now - lastPointerTime);
+            const dx = x - lastPointerX;
+            const dy = y - lastPointerY;
+            const distance = Math.hypot(dx, dy);
+            const speed = distance / dt;
+
+            const absX = Math.abs(dx);
+            const absY = Math.abs(dy);
+            const intensity = Math.min(1.0, distance / 42);
+
+            if (speed > 1.7 && distance > 28) triggerGlitch();
+
+            if (absY > absX * 1.35 && distance > 8) {
+                fxVertical = Math.min(1.0, fxVertical + intensity * 0.55);
+                showFxLabel('Flanger électrique');
+                spawnElectricDust(x, y, 8 + Math.floor(intensity * 12), 205);
+            } else if (absX > absY * 1.35 && distance > 8) {
+                fxHorizontal = Math.min(1.0, fxHorizontal + intensity * 0.5);
+                showFxLabel('Phaser + Reverb');
+                spawnElectricDust(x, y, 5 + Math.floor(intensity * 8), targetHue + 20);
+            } else if (distance > 10) {
+                fxDiagonal = Math.min(1.0, fxDiagonal + intensity * 0.65);
+                showFxLabel('Speed Up');
+                spawnElectricDust(x, y, 8 + Math.floor(intensity * 10), 35);
+            }
+
+            lastPointerX = x;
+            lastPointerY = y;
+            lastPointerTime = now;
+        }
+
+        function beginPointerInteraction(x, y) {
+            pointerActive = true;
+            lastPointerX = x;
+            lastPointerY = y;
+            lastPointerTime = performance.now();
+        }
+
+        function endPointerInteraction() {
+            pointerActive = false;
+        }
+
         async function startExperience() {
             if (isSetup) return;
-
-            await enterFullscreenMode();
 
             uiOverlay.classList.add('fade-out');
             initAudioContext();
@@ -421,22 +683,6 @@
             isSetup = true;
 
             await loadAndPlayIntegratedAudio();
-        }
-
-        async function enterFullscreenMode() {
-            const root = document.documentElement;
-
-            try {
-                if (root.requestFullscreen) {
-                    await root.requestFullscreen();
-                } else if (root.webkitRequestFullscreen) {
-                    root.webkitRequestFullscreen();
-                } else if (root.msRequestFullscreen) {
-                    root.msRequestFullscreen();
-                }
-            } catch (err) {
-                console.warn("Le plein écran n'a pas pu être activé automatiquement sur ce navigateur :", err);
-            }
         }
 
         function initAudioContext() {
@@ -478,9 +724,8 @@
                     document.getElementById('sub-status-text').innerText = "Erreur : audio introuvable dans /audio/";
                 });
 
-                const source = audioCtx.createMediaElementSource(localAudioElement);
-                source.connect(analyser);
-                analyser.connect(audioCtx.destination);
+                mediaSourceNode = audioCtx.createMediaElementSource(localAudioElement);
+                setupAudioFxChain(mediaSourceNode);
 
                 await localAudioElement.play();
 
@@ -623,14 +868,21 @@
             smoothMid += (mid - smoothMid) * 0.16;
             smoothHigh += (high - smoothHigh) * 0.16;
 
-            const time = performance.now() * 0.001 * (1.0 + smoothBass * 0.4);
+            fxVertical *= 0.94;
+            fxHorizontal *= 0.945;
+            fxDiagonal *= 0.93;
+            fxGlitch *= 0.82;
+            fxFlash *= 0.88;
+            updateAudioFx();
+
+            const time = performance.now() * 0.001 * (1.0 + smoothBass * 0.4 + fxDiagonal * 0.35);
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
             const minScreenDim = Math.min(canvas.width, canvas.height);
             
             const centralPulse = smoothBass * (minScreenDim * 0.08);
             const holeRadius = minScreenDim * 0.16 + centralPulse;
-            const glowRadius = minScreenDim * 0.42 + (smoothBass * 0.15 + smoothMid * 0.20) * minScreenDim;
+            const glowRadius = minScreenDim * 0.42 + (smoothBass * 0.15 + smoothMid * 0.20 + fxHorizontal * 0.18) * minScreenDim;
             
             const viewOffsetX = (centerX - mouseX);
             const viewOffsetY = (centerY - mouseY);
@@ -653,7 +905,7 @@
 
             // Génération procédurale bimodale basée sur le rythme
             if (smoothBass > 0.15) {
-                const sparkCount = Math.floor(smoothBass * (window.innerWidth < 768 ? 3 : 6)); 
+                const sparkCount = Math.floor((smoothBass + fxVertical * 0.12 + fxDiagonal * 0.08) * (window.innerWidth < 768 ? 3 : 6)); 
                 for (let k = 0; k < sparkCount; k++) {
                     const angle = Math.random() * Math.PI * 2;
                     
@@ -695,8 +947,8 @@
 
             // 1. Rendu du Halo (Glow) Arrière
             const glowGrad = ctx.createRadialGradient(coreX, coreY, holeRadius * 0.5, coreX, coreY, glowRadius);
-            glowGrad.addColorStop(0, `hsla(${baseHue}, 90%, 55%, ${0.28 * (0.6 + smoothBass * 0.4)})`);
-            glowGrad.addColorStop(0.25, `hsla(${baseHue + 25}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5)})`);
+            glowGrad.addColorStop(0, `hsla(${baseHue + fxVertical * 25}, 90%, 55%, ${0.28 * (0.6 + smoothBass * 0.4 + fxHorizontal * 0.55)})`);
+            glowGrad.addColorStop(0.25, `hsla(${baseHue + 25 + fxDiagonal * 40}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5 + fxHorizontal * 0.9)})`);
             glowGrad.addColorStop(0.6, `hsla(${baseHue - 20}, 70%, 30%, 0.03)`);
             glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = glowGrad;
@@ -707,7 +959,7 @@
             // 2. Rendu de la Matrice Quantique de Points
             ctx.globalCompositeOperation = 'source-over';
             for (let r = 0; r < totalRays; r++) {
-                const baseAngle = (r / totalRays) * Math.PI * 2 + (time * 0.015);
+                const baseAngle = (r / totalRays) * Math.PI * 2 + (time * (0.015 + fxDiagonal * 0.085));
                 
                 for (let d = 0; d < dotsPerRay; d++) {
                     const normD = d / dotsPerRay;
@@ -724,8 +976,9 @@
                     const waveFrequency = 0.012;
                     const wavePhase = distance * waveFrequency - time * 1.6;
                     
-                    let angleOffset = Math.sin(wavePhase) * (0.03 + smoothMid * 0.12);
+                    let angleOffset = Math.sin(wavePhase) * (0.03 + smoothMid * 0.12 + fxVertical * 0.06);
                     angleOffset += Math.cos(baseAngle * 3 - time * 0.5) * 0.015 * smoothHigh;
+                    angleOffset += Math.sin(time * 7.0 + normD * 18.0) * fxVertical * 0.025;
                     
                     const finalAngle = baseAngle + angleOffset;
 
@@ -786,18 +1039,52 @@
                 }
             }
             
+
+            // 3B. Arcs électriques liés au geste vertical / flanger
+            if (fxVertical > 0.04) {
+                ctx.globalCompositeOperation = 'lighter';
+                const arcCount = window.innerWidth < 768 ? 4 : 7;
+                for (let a = 0; a < arcCount; a++) {
+                    const startAngle = Math.random() * Math.PI * 2;
+                    const arcRadius = holeRadius * (1.04 + Math.random() * 0.28);
+                    const points = 8 + Math.floor(Math.random() * 5);
+
+                    ctx.beginPath();
+                    for (let p = 0; p <= points; p++) {
+                        const t = p / points;
+                        const angle = startAngle + t * (0.35 + Math.random() * 0.65);
+                        const jitter = (Math.random() - 0.5) * 22 * fxVertical;
+                        const x = coreX + Math.cos(angle) * (arcRadius + jitter);
+                        const y = coreY + Math.sin(angle) * (arcRadius + jitter);
+                        if (p === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+
+                    ctx.strokeStyle = `hsla(${baseHue + 50}, 100%, 72%, ${0.18 + fxVertical * 0.55})`;
+                    ctx.lineWidth = 0.8 + fxVertical * 2.0;
+                    ctx.stroke();
+                }
+            }
+
+            // 3C. Flash bref lié au glitch / mouvement rapide
+            if (fxFlash > 0.03) {
+                ctx.globalCompositeOperation = 'screen';
+                ctx.fillStyle = `rgba(255, 255, 255, ${fxFlash * 0.12})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
             ctx.globalCompositeOperation = 'source-over'; 
 
             // 4. Anneaux d'accrétion énergétiques
             const ringCount = window.innerWidth < 768 ? 3 : 5;
             const ringTime = time * 1.8;
             for (let j = 0; j < ringCount; j++) {
-                const ringRadius = holeRadius * (1.05 + j * 0.05);
+                const ringRadius = holeRadius * (1.05 + j * 0.05 + fxHorizontal * 0.035);
                 const ringPoints = 64;
                 ctx.beginPath();
                 for (let i = 0; i <= ringPoints; i++) {
                     const angle = (i / ringPoints) * Math.PI * 2;
-                    const warp = Math.sin(angle * (3 + j) + ringTime) * (5 + smoothBass * 18) + Math.cos(angle * 2 - ringTime * 0.8) * (3 + smoothHigh * 8);
+                    const warp = Math.sin(angle * (3 + j) + ringTime) * (5 + smoothBass * 18 + fxVertical * 18) + Math.cos(angle * 2 - ringTime * 0.8) * (3 + smoothHigh * 8 + fxHorizontal * 12);
                     const r = ringRadius + warp;
                     const x = coreX + Math.cos(angle) * r;
                     const y = coreY + Math.sin(angle) * r;
