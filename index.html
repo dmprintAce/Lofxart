@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Expérience Sonore Nocturne - Black Hole Core</title>
+    <title>Expérience Sonore Nocturne - Active Black Hole Core</title>
     <style>
         * {
             box-sizing: border-box;
@@ -294,7 +294,7 @@
 
     <div id="ui-overlay" onclick="startExperience()">
         <div id="status-text">CLIQUEZ POUR LANCER L'EXPÉRIENCE</div>
-        <div id="sub-status-text">Audio intégré : down now - Remix</div>
+        <div id="sub-status-text">Audio intégré : LofxArt - DownNow</div>
     </div>
 
     <div id="controls-container">
@@ -358,8 +358,14 @@
         let flangerLfoGain = null;
         let phaserFilters = [];
         let phaserWetGain = null;
+        let phaserDelay = null;
+        let phaserDelayFeedback = null;
+        let phaserDelayWetGain = null;
         let reverbConvolver = null;
         let reverbWetGain = null;
+        let tapDelay = null;
+        let tapDelayFeedback = null;
+        let tapDelayWetGain = null;
         let bitcrusherNode = null;
         let bitcrusherWetGain = null;
 
@@ -369,6 +375,8 @@
         let fxDiagonal = 0;
         let fxGlitch = 0;
         let fxFlash = 0;
+        let fxTapEcho = 0;
+        let fxIsHeld = false;
         let fxLabelTimeout = null;
 
         let startTime = 0;
@@ -483,7 +491,8 @@
                 speed: Math.max(7, minScreenDim * 0.016)
             });
 
-            showFxLabel('Onde lumineuse');
+            fxTapEcho = Math.min(1.0, fxTapEcho + 0.95);
+            showFxLabel('Echo Delay');
 
             for (let i = 0; i < burstCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
@@ -555,16 +564,16 @@
 
         function setupAudioFxChain(sourceNode) {
             dryGain = audioCtx.createGain();
-            dryGain.gain.value = 0.92;
+            dryGain.gain.value = 0.86;
 
-            flangerDelay = audioCtx.createDelay(0.03);
-            flangerDelay.delayTime.value = 0.004;
+            flangerDelay = audioCtx.createDelay(0.04);
+            flangerDelay.delayTime.value = 0.005;
             flangerFeedback = audioCtx.createGain();
             flangerFeedback.gain.value = 0.0;
             flangerWetGain = audioCtx.createGain();
             flangerWetGain.gain.value = 0.0;
             flangerLfo = audioCtx.createOscillator();
-            flangerLfo.frequency.value = 0.18;
+            flangerLfo.frequency.value = 0.22;
             flangerLfoGain = audioCtx.createGain();
             flangerLfoGain.gain.value = 0.001;
             flangerLfo.connect(flangerLfoGain);
@@ -573,11 +582,11 @@
 
             phaserFilters = [];
             let previousPhaserNode = null;
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 6; i++) {
                 const filter = audioCtx.createBiquadFilter();
                 filter.type = 'allpass';
-                filter.frequency.value = 450 + i * 260;
-                filter.Q.value = 0.8;
+                filter.frequency.value = 260 + i * 310;
+                filter.Q.value = 1.2;
                 phaserFilters.push(filter);
                 if (previousPhaserNode) previousPhaserNode.connect(filter);
                 previousPhaserNode = filter;
@@ -585,10 +594,26 @@
             phaserWetGain = audioCtx.createGain();
             phaserWetGain.gain.value = 0.0;
 
+            // Petit delay spatial couplé au phaser pour rendre le geste horizontal plus audible.
+            phaserDelay = audioCtx.createDelay(0.8);
+            phaserDelay.delayTime.value = 0.18;
+            phaserDelayFeedback = audioCtx.createGain();
+            phaserDelayFeedback.gain.value = 0.0;
+            phaserDelayWetGain = audioCtx.createGain();
+            phaserDelayWetGain.gain.value = 0.0;
+
             reverbConvolver = audioCtx.createConvolver();
-            reverbConvolver.buffer = createImpulseResponse(audioCtx);
+            reverbConvolver.buffer = createImpulseResponse(audioCtx, 3.0, 2.0);
             reverbWetGain = audioCtx.createGain();
             reverbWetGain.gain.value = 0.0;
+
+            // Echo déclenché au tap/clic, avec feedback qui se diffuse puis s'estompe.
+            tapDelay = audioCtx.createDelay(1.2);
+            tapDelay.delayTime.value = 0.34;
+            tapDelayFeedback = audioCtx.createGain();
+            tapDelayFeedback.gain.value = 0.42;
+            tapDelayWetGain = audioCtx.createGain();
+            tapDelayWetGain.gain.value = 0.0;
 
             bitcrusherNode = createBitcrusher(audioCtx, 5, 0.16);
             bitcrusherWetGain = audioCtx.createGain();
@@ -607,9 +632,21 @@
             phaserFilters[phaserFilters.length - 1].connect(phaserWetGain);
             phaserWetGain.connect(analyser);
 
+            sourceNode.connect(phaserDelay);
+            phaserDelay.connect(phaserDelayFeedback);
+            phaserDelayFeedback.connect(phaserDelay);
+            phaserDelay.connect(phaserDelayWetGain);
+            phaserDelayWetGain.connect(analyser);
+
             sourceNode.connect(reverbConvolver);
             reverbConvolver.connect(reverbWetGain);
             reverbWetGain.connect(analyser);
+
+            sourceNode.connect(tapDelay);
+            tapDelay.connect(tapDelayFeedback);
+            tapDelayFeedback.connect(tapDelay);
+            tapDelay.connect(tapDelayWetGain);
+            tapDelayWetGain.connect(analyser);
 
             sourceNode.connect(bitcrusherNode);
             bitcrusherNode.connect(bitcrusherWetGain);
@@ -621,34 +658,46 @@
         function updateAudioFx() {
             if (!audioCtx) return;
             const now = audioCtx.currentTime;
+            const activeFx = Math.max(fxVertical, fxHorizontal, fxDiagonal, fxGlitch, fxTapEcho);
 
-            if (flangerWetGain) flangerWetGain.gain.setTargetAtTime(0.92 * fxVertical, now, 0.028);
-            if (flangerFeedback) flangerFeedback.gain.setTargetAtTime(0.62 * fxVertical, now, 0.028);
-            if (flangerLfoGain) flangerLfoGain.gain.setTargetAtTime(0.001 + 0.010 * fxVertical, now, 0.028);
-            if (flangerLfo) flangerLfo.frequency.setTargetAtTime(0.25 + 3.2 * fxVertical, now, 0.028);
+            // Quand l'utilisateur joue avec les FX, on baisse un peu le dry pour mieux entendre les effets.
+            if (dryGain) dryGain.gain.setTargetAtTime(0.88 - activeFx * 0.22, now, 0.045);
 
-            if (phaserWetGain) phaserWetGain.gain.setTargetAtTime(0.82 * fxHorizontal, now, 0.038);
-            if (reverbWetGain) reverbWetGain.gain.setTargetAtTime(0.52 * fxHorizontal, now, 0.055);
+            if (flangerWetGain) flangerWetGain.gain.setTargetAtTime(0.98 * fxVertical, now, 0.025);
+            if (flangerFeedback) flangerFeedback.gain.setTargetAtTime(0.68 * fxVertical, now, 0.025);
+            if (flangerLfoGain) flangerLfoGain.gain.setTargetAtTime(0.001 + 0.012 * fxVertical, now, 0.025);
+            if (flangerLfo) flangerLfo.frequency.setTargetAtTime(0.25 + 4.0 * fxVertical, now, 0.025);
+
+            // Phaser + Reverb horizontal renforcé : plus de wet, plus de sweep, plus de delay spatial.
+            if (phaserWetGain) phaserWetGain.gain.setTargetAtTime(1.12 * fxHorizontal, now, 0.03);
+            if (phaserDelayWetGain) phaserDelayWetGain.gain.setTargetAtTime(0.48 * fxHorizontal, now, 0.04);
+            if (phaserDelayFeedback) phaserDelayFeedback.gain.setTargetAtTime(0.18 + 0.48 * fxHorizontal, now, 0.04);
+            if (phaserDelay) phaserDelay.delayTime.setTargetAtTime(0.10 + 0.22 * fxHorizontal, now, 0.05);
+            if (reverbWetGain) reverbWetGain.gain.setTargetAtTime(0.74 * fxHorizontal, now, 0.06);
 
             if (phaserFilters.length) {
                 phaserFilters.forEach((filter, index) => {
-                    const freq = 320 + index * 300 + fxHorizontal * 2200 + Math.sin(performance.now() * 0.006 + index) * 260 * fxHorizontal;
-                    filter.frequency.setTargetAtTime(freq, now, 0.05);
-                    filter.Q.setTargetAtTime(0.9 + fxHorizontal * 5.2, now, 0.04);
+                    const sweep = Math.sin(performance.now() * 0.008 + index * 0.7);
+                    const freq = 220 + index * 360 + fxHorizontal * 3200 + sweep * 520 * fxHorizontal;
+                    filter.frequency.setTargetAtTime(freq, now, 0.035);
+                    filter.Q.setTargetAtTime(1.1 + fxHorizontal * 7.5, now, 0.035);
                 });
             }
 
-            if (bitcrusherWetGain) bitcrusherWetGain.gain.setTargetAtTime(0.72 * fxGlitch, now, 0.018);
+            if (tapDelayWetGain) tapDelayWetGain.gain.setTargetAtTime(0.82 * fxTapEcho, now, 0.025);
+            if (tapDelayFeedback) tapDelayFeedback.gain.setTargetAtTime(0.30 + 0.34 * fxTapEcho, now, 0.05);
+
+            if (bitcrusherWetGain) bitcrusherWetGain.gain.setTargetAtTime(0.70 * fxGlitch, now, 0.018);
 
             if (localAudioElement) {
-                const targetRate = 1.0 + fxDiagonal * 0.58 + fxGlitch * 0.12;
-                localAudioElement.playbackRate += (targetRate - localAudioElement.playbackRate) * 0.18;
+                const targetRate = 1.0 + fxDiagonal * 0.52 + fxGlitch * 0.10;
+                localAudioElement.playbackRate += (targetRate - localAudioElement.playbackRate) * 0.16;
             }
         }
 
         function triggerGlitch() {
-            fxGlitch = Math.min(1.0, fxGlitch + 0.95);
-            fxFlash = Math.min(0.45, fxFlash + 0.32);
+            fxGlitch = Math.min(1.0, fxGlitch + 0.78);
+            fxFlash = Math.min(0.38, fxFlash + 0.24);
             showFxLabel('Glitch');
         }
 
@@ -683,20 +732,20 @@
 
             const absX = Math.abs(dx);
             const absY = Math.abs(dy);
-            const intensity = Math.min(1.0, distance / 30);
+            const intensity = Math.min(1.0, distance / 24);
 
             if (speed > 1.55 && distance > 24) triggerGlitch();
 
             if (absY > absX * 1.35 && distance > 8) {
-                fxVertical = Math.min(1.0, fxVertical + intensity * 0.82);
+                fxVertical = Math.min(1.0, Math.max(fxVertical, 0.42) + intensity * 0.72);
                 showFxLabel('Flanger électrique');
                 spawnElectricDust(x, y, 8 + Math.floor(intensity * 12), 205);
             } else if (absX > absY * 1.35 && distance > 8) {
-                fxHorizontal = Math.min(1.0, fxHorizontal + intensity * 0.76);
+                fxHorizontal = Math.min(1.0, Math.max(fxHorizontal, 0.62) + intensity * 0.82);
                 showFxLabel('Phaser + Reverb');
                 spawnElectricDust(x, y, 5 + Math.floor(intensity * 8), targetHue + 20);
             } else if (distance > 10) {
-                fxDiagonal = Math.min(1.0, fxDiagonal + intensity * 0.9);
+                fxDiagonal = Math.min(1.0, Math.max(fxDiagonal, 0.48) + intensity * 0.82);
                 showFxLabel('Speed Up');
                 spawnElectricDust(x, y, 8 + Math.floor(intensity * 10), 35);
             }
@@ -708,6 +757,7 @@
 
         function beginPointerInteraction(x, y) {
             pointerActive = true;
+            fxIsHeld = true;
             lastPointerX = x;
             lastPointerY = y;
             lastPointerTime = performance.now();
@@ -715,6 +765,8 @@
 
         function endPointerInteraction() {
             pointerActive = false;
+            fxIsHeld = false;
+            showFxLabel('Relâchement');
         }
 
         async function startExperience() {
@@ -913,11 +965,20 @@
             smoothMid += (mid - smoothMid) * 0.16;
             smoothHigh += (high - smoothHigh) * 0.16;
 
-            fxVertical *= 0.965;
-            fxHorizontal *= 0.965;
-            fxDiagonal *= 0.955;
-            fxGlitch *= 0.74;
-            fxFlash *= 0.78;
+            if (fxIsHeld) {
+                // Pendant que l'utilisateur maintient le doigt/la souris, les effets restent jouables.
+                fxVertical *= 0.992;
+                fxHorizontal *= 0.994;
+                fxDiagonal *= 0.990;
+            } else {
+                // Au relâchement, les effets s'estompent naturellement.
+                fxVertical *= 0.90;
+                fxHorizontal *= 0.90;
+                fxDiagonal *= 0.88;
+            }
+            fxGlitch *= 0.70;
+            fxFlash *= 0.74;
+            fxTapEcho *= 0.965;
             updateAudioFx();
 
             const time = performance.now() * 0.001 * (1.0 + smoothBass * 0.4 + fxDiagonal * 0.35);
@@ -927,7 +988,7 @@
             
             const centralPulse = smoothBass * (minScreenDim * 0.08);
             const holeRadius = minScreenDim * 0.16 + centralPulse;
-            const glowRadius = minScreenDim * 0.42 + (smoothBass * 0.15 + smoothMid * 0.20 + fxHorizontal * 0.30) * minScreenDim;
+            const glowRadius = minScreenDim * 0.42 + (smoothBass * 0.15 + smoothMid * 0.20 + fxHorizontal * 0.42) * minScreenDim;
             
             const viewOffsetX = (centerX - mouseX);
             const viewOffsetY = (centerY - mouseY);
@@ -1167,7 +1228,7 @@
             const ringCount = window.innerWidth < 768 ? 3 : 5;
             const ringTime = time * 1.8;
             for (let j = 0; j < ringCount; j++) {
-                const ringRadius = holeRadius * (1.05 + j * 0.05 + fxHorizontal * 0.035);
+                const ringRadius = holeRadius * (1.05 + j * 0.05 + fxHorizontal * 0.070);
                 const ringPoints = 64;
                 ctx.beginPath();
                 for (let i = 0; i <= ringPoints; i++) {
