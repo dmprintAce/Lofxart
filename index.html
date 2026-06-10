@@ -18,6 +18,8 @@
             background-color: #000000;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: white;
+            touch-action: none;
+            overscroll-behavior: none;
         }
         canvas {
             display: block;
@@ -27,6 +29,9 @@
             top: 0;
             left: 0;
             z-index: 1;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
         }
         
         /* Overlay d'interaction initiale */
@@ -400,7 +405,12 @@
         let pointerActive = false;
         let lastPointerX = window.innerWidth / 2;
         let lastPointerY = window.innerHeight / 2;
+        let gestureStartX = window.innerWidth / 2;
+        let gestureStartY = window.innerHeight / 2;
         let lastPointerTime = performance.now();
+        let activeTouchId = null;
+        let lastTouchEventTime = 0;
+        let gestureMoved = false;
 
         let smoothBass = 0;
         let smoothMid = 0;
@@ -442,42 +452,85 @@
             targetMY = e.clientY;
         });
 
-        window.addEventListener('touchmove', (e) => {
-            if (e.touches.length > 0) {
-                targetMX = e.touches[0].clientX;
-                targetMY = e.touches[0].clientY;
-            }
-        }, { passive: true });
+        function getActiveTouch(e) {
+            if (activeTouchId === null) return e.touches[0] || e.changedTouches[0] || null;
 
-        window.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 0) {
-                targetMX = e.touches[0].clientX;
-                targetMY = e.touches[0].clientY;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === activeTouchId) return e.touches[i];
             }
-        }, { passive: true });
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === activeTouchId) return e.changedTouches[i];
+            }
+            return e.touches[0] || e.changedTouches[0] || null;
+        }
 
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.cancelable) e.preventDefault();
+            if (!e.touches.length) return;
+
+            const t = e.touches[0];
+            activeTouchId = t.identifier;
+            lastTouchEventTime = performance.now();
+            targetMX = t.clientX;
+            targetMY = t.clientY;
+            beginPointerInteraction(t.clientX, t.clientY);
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.cancelable) e.preventDefault();
+            const t = getActiveTouch(e);
+            if (!t) return;
+
+            lastTouchEventTime = performance.now();
+            targetMX = t.clientX;
+            targetMY = t.clientY;
+            if (pointerActive) handleGestureMove(t.clientX, t.clientY, true);
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.cancelable) e.preventDefault();
+            lastTouchEventTime = performance.now();
+            activeTouchId = null;
+            endPointerInteraction();
+        }, { passive: false });
+
+        canvas.addEventListener('touchcancel', (e) => {
+            if (e.cancelable) e.preventDefault();
+            lastTouchEventTime = performance.now();
+            activeTouchId = null;
+            endPointerInteraction();
+        }, { passive: false });
 
         window.addEventListener('pointerdown', (e) => {
+            // Sur Android, on privilégie les événements touch natifs pour éviter le faux "click only".
+            if (performance.now() - lastTouchEventTime < 700) return;
             beginPointerInteraction(e.clientX, e.clientY);
         }, { passive: true });
 
         window.addEventListener('pointermove', (e) => {
+            if (performance.now() - lastTouchEventTime < 700) return;
             targetMX = e.clientX;
             targetMY = e.clientY;
-            if (pointerActive) handleGestureMove(e.clientX, e.clientY);
+            if (pointerActive) handleGestureMove(e.clientX, e.clientY, false);
         }, { passive: true });
 
         window.addEventListener('pointerup', () => {
+            if (performance.now() - lastTouchEventTime < 700) return;
             endPointerInteraction();
         }, { passive: true });
 
         window.addEventListener('pointercancel', () => {
+            if (performance.now() - lastTouchEventTime < 700) return;
             endPointerInteraction();
         }, { passive: true });
 
         // Clic générant une déflagration de feux d'artifice éjectés à haute vélocité
         canvas.addEventListener('click', (e) => {
             if (!isSetup) return;
+            if (gestureMoved && performance.now() - lastTouchEventTime < 900) {
+                gestureMoved = false;
+                return;
+            }
 
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
@@ -775,63 +828,79 @@
             }
         }
 
-        function handleGestureMove(x, y) {
+        function handleGestureMove(x, y, isTouch = false) {
             if (!isSetup) return;
 
             const now = performance.now();
             const dt = Math.max(16, now - lastPointerTime);
+
             const dx = x - lastPointerX;
             const dy = y - lastPointerY;
+            const totalDx = x - gestureStartX;
+            const totalDy = y - gestureStartY;
+
             const distance = Math.hypot(dx, dy);
+            const totalDistance = Math.hypot(totalDx, totalDy);
             const speed = distance / dt;
+
+            if (totalDistance > 7) gestureMoved = true;
 
             const absX = Math.abs(dx);
             const absY = Math.abs(dy);
-            const intensity = Math.min(1.0, distance / 22);
+            const totalAbsX = Math.abs(totalDx);
+            const totalAbsY = Math.abs(totalDy);
 
-            if (speed > 1.65 && distance > 24) triggerGlitch();
+            // Plus sensible sur tactile, car les mouvements sont plus courts que sur souris.
+            const minMove = isTouch ? 4 : 8;
+            const minDiagonal = isTouch ? 6 : 10;
+            const intensity = Math.min(1.0, Math.max(distance, totalDistance * 0.18) / (isTouch ? 14 : 22));
 
-            // La diagonale passe avant vertical/horizontal pour que le slow down fonctionne vraiment.
-            const isDiagonal = distance > 10 && absX > 5 && absY > 5 && (Math.min(absX, absY) / Math.max(absX, absY)) > 0.34;
+            if (speed > (isTouch ? 1.35 : 1.65) && distance > (isTouch ? 16 : 24)) triggerGlitch();
+
+            // Classification mobile :
+            // On utilise le mouvement total depuis le début du toucher pour éviter qu'un swipe diagonal
+            // soit découpé en petits segments verticaux/horizontaux.
+            const diagonalRatio = Math.min(totalAbsX, totalAbsY) / Math.max(totalAbsX || 1, totalAbsY || 1);
+            const isDiagonal = totalDistance > minDiagonal && totalAbsX > minMove && totalAbsY > minMove && diagonalRatio > (isTouch ? 0.22 : 0.34);
 
             if (isDiagonal) {
-                fxDiagonal = Math.min(1.0, Math.max(fxDiagonal, 0.55) + intensity * 0.78);
+                fxDiagonal = Math.min(1.0, Math.max(fxDiagonal, 0.58) + intensity * 0.86);
 
-                // Diagonale vers le haut = Speed Up, diagonale vers le bas = Slow Down.
-                const direction = dy < 0 ? 1 : -1;
-                fxSpeed += direction * intensity * 0.72;
+                // TotalDy > 0 = diagonale vers le bas = slow down.
+                const direction = totalDy < 0 ? 1 : -1;
+                fxSpeed += direction * intensity * (isTouch ? 0.92 : 0.72);
                 fxSpeed = Math.max(-1.0, Math.min(1.0, fxSpeed));
 
                 if (direction > 0) {
                     showFxLabel('Speed Up');
-                    spawnElectricDust(x, y, 9 + Math.floor(intensity * 13), 35);
+                    spawnElectricDust(x, y, 8 + Math.floor(intensity * 12), 35);
                 } else {
                     showFxLabel('Slow Down');
-                    spawnElectricDust(x, y, 10 + Math.floor(intensity * 14), 185);
+                    spawnElectricDust(x, y, 9 + Math.floor(intensity * 13), 185);
                 }
-            } else if (absX > absY * 1.25 && distance > 8) {
-                if (dx > 0) {
-                    fxHorizontal = Math.min(1.0, Math.max(fxHorizontal, 0.68) + intensity * 0.84);
+            } else if (totalAbsX > totalAbsY * (isTouch ? 1.05 : 1.25) && totalAbsX > minMove) {
+                if (totalDx > 0) {
+                    fxHorizontal = Math.min(1.0, Math.max(fxHorizontal, 0.72) + intensity * 0.88);
                     fxHorizontalAlt *= 0.72;
                     showFxLabel('Phaser + Reverb');
-                    spawnElectricDust(x, y, 7 + Math.floor(intensity * 10), targetHue + 35);
+                    spawnElectricDust(x, y, 6 + Math.floor(intensity * 9), targetHue + 35);
                 } else {
-                    fxHorizontalAlt = Math.min(1.0, Math.max(fxHorizontalAlt, 0.62) + intensity * 0.82);
-                    fxHorizontal *= 0.78;
+                    fxHorizontalAlt = Math.min(1.0, Math.max(fxHorizontalAlt, 0.68) + intensity * 0.88);
+                    fxHorizontal *= 0.76;
                     showFxLabel('Sweep Spatial');
-                    spawnElectricDust(x, y, 7 + Math.floor(intensity * 10), 275);
+                    spawnElectricDust(x, y, 6 + Math.floor(intensity * 9), 275);
                 }
-            } else if (absY > absX * 1.25 && distance > 8) {
-                if (dy < 0) {
-                    fxVertical = Math.min(1.0, Math.max(fxVertical, 0.50) + intensity * 0.82);
+            } else if (totalAbsY > totalAbsX * (isTouch ? 1.05 : 1.25) && totalAbsY > minMove) {
+                if (totalDy < 0) {
+                    fxVertical = Math.min(1.0, Math.max(fxVertical, 0.56) + intensity * 0.86);
                     fxVerticalWave *= 0.70;
                     showFxLabel('Flanger électrique');
-                    spawnElectricDust(x, y, 10 + Math.floor(intensity * 12), 205);
+                    spawnElectricDust(x, y, 8 + Math.floor(intensity * 11), 205);
                 } else {
-                    fxVerticalWave = Math.min(1.0, Math.max(fxVerticalWave, 0.55) + intensity * 0.86);
-                    fxVertical *= 0.76;
+                    fxVerticalWave = Math.min(1.0, Math.max(fxVerticalWave, 0.62) + intensity * 0.90);
+                    fxVertical *= 0.74;
                     showFxLabel('Vague sonore');
-                    spawnElectricDust(x, y, 10 + Math.floor(intensity * 12), 165);
+                    spawnElectricDust(x, y, 8 + Math.floor(intensity * 11), 165);
                 }
             }
 
@@ -843,6 +912,9 @@
         function beginPointerInteraction(x, y) {
             pointerActive = true;
             fxIsHeld = true;
+            gestureMoved = false;
+            gestureStartX = x;
+            gestureStartY = y;
             lastPointerX = x;
             lastPointerY = y;
             lastPointerTime = performance.now();
@@ -851,7 +923,7 @@
         function endPointerInteraction() {
             pointerActive = false;
             fxIsHeld = false;
-            showFxLabel('Retour naturel');
+            if (gestureMoved) showFxLabel('Retour naturel');
         }
 
         async function startExperience() {
