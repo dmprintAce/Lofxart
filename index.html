@@ -294,7 +294,7 @@
 
     <div id="ui-overlay" onclick="startExperience()">
         <div id="status-text">CLIQUEZ POUR LANCER L'EXPÉRIENCE</div>
-        <div id="sub-status-text">Audio intégré : LofxArt - DownNow</div>
+        <div id="sub-status-text">Audio intégré : down now - Remix</div>
     </div>
 
     <div id="controls-container">
@@ -373,6 +373,7 @@
         let fxVertical = 0;
         let fxHorizontal = 0;
         let fxDiagonal = 0;
+        let fxSpeed = 0; // -1 = slow down, +1 = speed up
         let fxGlitch = 0;
         let fxFlash = 0;
         let fxTapEcho = 0;
@@ -690,8 +691,10 @@
             if (bitcrusherWetGain) bitcrusherWetGain.gain.setTargetAtTime(0.70 * fxGlitch, now, 0.018);
 
             if (localAudioElement) {
-                const targetRate = 1.0 + fxDiagonal * 0.52 + fxGlitch * 0.10;
-                localAudioElement.playbackRate += (targetRate - localAudioElement.playbackRate) * 0.16;
+                // Contrôle jouable de la vitesse :
+                // fxSpeed > 0 accélère, fxSpeed < 0 ralentit.
+                const targetRate = Math.max(0.58, Math.min(1.68, 1.0 + fxSpeed * 0.62 + fxGlitch * 0.08));
+                localAudioElement.playbackRate += (targetRate - localAudioElement.playbackRate) * 0.20;
             }
         }
 
@@ -746,8 +749,20 @@
                 spawnElectricDust(x, y, 5 + Math.floor(intensity * 8), targetHue + 20);
             } else if (distance > 10) {
                 fxDiagonal = Math.min(1.0, Math.max(fxDiagonal, 0.48) + intensity * 0.82);
-                showFxLabel('Speed Up');
-                spawnElectricDust(x, y, 8 + Math.floor(intensity * 10), 35);
+
+                // Diagonale vers le haut = Speed Up, diagonale vers le bas = Slow Down.
+                // Sur écran, y diminue quand on monte.
+                const direction = dy < 0 ? 1 : -1;
+                fxSpeed += direction * intensity * 0.52;
+                fxSpeed = Math.max(-1.0, Math.min(1.0, fxSpeed));
+
+                if (direction > 0) {
+                    showFxLabel('Speed Up');
+                    spawnElectricDust(x, y, 8 + Math.floor(intensity * 12), 35);
+                } else {
+                    showFxLabel('Slow Down');
+                    spawnElectricDust(x, y, 8 + Math.floor(intensity * 12), 185);
+                }
             }
 
             lastPointerX = x;
@@ -766,7 +781,7 @@
         function endPointerInteraction() {
             pointerActive = false;
             fxIsHeld = false;
-            showFxLabel('Relâchement');
+            showFxLabel('Retour vitesse normale');
         }
 
         async function startExperience() {
@@ -800,6 +815,12 @@
                 localAudioElement.preload = "auto";
                 localAudioElement.playsInline = true;
                 localAudioElement.volume = 1.0;
+
+                // Permet un effet plus "DJ/tape" quand on joue avec la vitesse.
+                // Selon les navigateurs, ces propriétés peuvent être ignorées sans casser la page.
+                localAudioElement.preservesPitch = false;
+                localAudioElement.mozPreservesPitch = false;
+                localAudioElement.webkitPreservesPitch = false;
 
                 localAudioElement.addEventListener('timeupdate', () => {
                     if (!useBufferMode) updateProgressUI(localAudioElement.currentTime, localAudioElement.duration);
@@ -970,18 +991,20 @@
                 fxVertical *= 0.992;
                 fxHorizontal *= 0.994;
                 fxDiagonal *= 0.990;
+                fxSpeed *= 0.992;
             } else {
-                // Au relâchement, les effets s'estompent naturellement.
+                // Au relâchement, les effets et la vitesse reviennent naturellement à la normale.
                 fxVertical *= 0.90;
                 fxHorizontal *= 0.90;
                 fxDiagonal *= 0.88;
+                fxSpeed *= 0.84;
             }
             fxGlitch *= 0.70;
             fxFlash *= 0.74;
             fxTapEcho *= 0.965;
             updateAudioFx();
 
-            const time = performance.now() * 0.001 * (1.0 + smoothBass * 0.4 + fxDiagonal * 0.35);
+            const time = performance.now() * 0.001 * (1.0 + smoothBass * 0.4 + Math.abs(fxSpeed) * 0.55 + fxDiagonal * 0.18);
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
             const minScreenDim = Math.min(canvas.width, canvas.height);
@@ -1054,7 +1077,7 @@
             // 1. Rendu du Halo (Glow) Arrière
             const glowGrad = ctx.createRadialGradient(coreX, coreY, holeRadius * 0.5, coreX, coreY, glowRadius);
             glowGrad.addColorStop(0, `hsla(${baseHue + fxVertical * 25}, 90%, 55%, ${0.28 * (0.6 + smoothBass * 0.4 + fxHorizontal * 0.85)})`);
-            glowGrad.addColorStop(0.25, `hsla(${baseHue + 25 + fxDiagonal * 40}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5 + fxHorizontal * 1.25)})`);
+            glowGrad.addColorStop(0.25, `hsla(${baseHue + 25 + fxDiagonal * 25 + fxSpeed * 45}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5 + fxHorizontal * 1.25 + Math.abs(fxSpeed) * 0.7)})`);
             glowGrad.addColorStop(0.6, `hsla(${baseHue - 20}, 70%, 30%, 0.03)`);
             glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = glowGrad;
@@ -1065,7 +1088,7 @@
             // 2. Rendu de la Matrice Quantique de Points
             ctx.globalCompositeOperation = 'source-over';
             for (let r = 0; r < totalRays; r++) {
-                const baseAngle = (r / totalRays) * Math.PI * 2 + (time * (0.015 + fxDiagonal * 0.085));
+                const baseAngle = (r / totalRays) * Math.PI * 2 + (time * (0.015 + fxDiagonal * 0.045 + fxSpeed * 0.11));
                 
                 for (let d = 0; d < dotsPerRay; d++) {
                     const normD = d / dotsPerRay;
