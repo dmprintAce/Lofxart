@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Expérience Sonore Nocturne - V5 Active Black Hole Core</title>
+    <title>Expérience Sonore Nocturne - Black Hole Core</title>
     <style>
         * {
             box-sizing: border-box;
@@ -29,7 +29,7 @@
             z-index: 1;
         }
         
-        
+        /* Overlay d'interaction initiale */
         #ui-overlay {
             position: absolute;
             top: 0;
@@ -66,7 +66,7 @@
             text-align: center;
         }
 
-        
+        /* Panneau de contrôle */
         #controls-container {
             position: absolute;
             bottom: 20px;
@@ -280,11 +280,11 @@
             transform: translate(-70%, -70%);
             font-family: 'Segoe UI', sans-serif;
             font-size: 1rem;
-            color: rgba(255, 255, 255, 0.15); 
-            pointer-events: none; 
+            color: rgba(255, 255, 255, 0.15); /* Transparence élevée pour la subtilité */
+            pointer-events: none; /* Le texte ne bloque pas les clics */
             z-index: 5;
             letter-spacing: 4px;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3); /* Effet néon très léger */
             user-select: none;
             white-space: nowrap;
         }
@@ -294,7 +294,7 @@
 
     <div id="ui-overlay" onclick="startExperience()">
         <div id="status-text">CLIQUEZ POUR LANCER L'EXPÉRIENCE</div>
-        <div id="sub-status-text">Audio intégré : LofxArt - DownNow</div>
+        <div id="sub-status-text">Audio intégré : down now - Remix</div>
     </div>
 
     <div id="controls-container">
@@ -317,6 +317,15 @@
     </div>
 
     <script>
+        window.addEventListener('error', (event) => {
+            console.error('Erreur JavaScript LofXArt :', event.message, event.filename, event.lineno);
+            const sub = document.getElementById('sub-status-text');
+            const overlay = document.getElementById('ui-overlay');
+            if (sub && overlay && !overlay.classList.contains('fade-out')) {
+                sub.innerText = 'Erreur de lancement : rechargez la page ou vérifiez la console.';
+            }
+        });
+
         const canvas = document.getElementById('visualizer');
         const ctx = canvas.getContext('2d');
         const uiOverlay = document.getElementById('ui-overlay');
@@ -339,7 +348,7 @@
         let bufferSourceNode = null;
         let localAudioElement = null;
 
-        
+        // Chaîne audio FX
         let mediaSourceNode = null;
         let dryGain = null;
         let flangerDelay = null;
@@ -354,7 +363,7 @@
         let bitcrusherNode = null;
         let bitcrusherWetGain = null;
 
-        
+        // Intensités FX contrôlées par les gestes
         let fxVertical = 0;
         let fxHorizontal = 0;
         let fxDiagonal = 0;
@@ -382,6 +391,7 @@
         let smoothHigh = 0;
 
         let sparks = [];
+        let energyWaves = [];
         let baseHue = 215; 
         let targetHue = 215;
 
@@ -449,45 +459,55 @@
             endPointerInteraction();
         }, { passive: true });
 
-        
+        // Clic générant une déflagration de feux d'artifice éjectés à haute vélocité
         canvas.addEventListener('click', (e) => {
             if (!isSetup) return;
-            
+
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
-            
+
             const currentIndex = colorPalette.indexOf(targetHue);
             const nextIndex = (currentIndex + 1) % colorPalette.length;
             targetHue = colorPalette[nextIndex];
-            fxFlash = Math.min(1.0, fxFlash + 0.55);
-            showFxLabel('Couleur + Dust');
 
-            const burstCount = window.innerWidth < 768 ? 50 : 110; 
+            const burstCount = window.innerWidth < 768 ? 42 : 82; 
             const minScreenDim = Math.min(canvas.width, canvas.height);
             const currentHoleRadius = minScreenDim * 0.16;
 
+            // Remplace le flash blanc par une onde douce plus sûre visuellement.
+            energyWaves.push({
+                radius: currentHoleRadius * 0.95,
+                alpha: 0.58,
+                width: 10,
+                hue: targetHue,
+                speed: Math.max(7, minScreenDim * 0.016)
+            });
+
+            showFxLabel('Onde lumineuse');
+
             for (let i = 0; i < burstCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
-                
-                const isFirework = Math.random() < 0.60; 
-                
-                const radialSpeed = isFirework ? (3.5 + Math.random() * 6.0) : (1.0 + Math.random() * 2.5); 
-                const swirlSpeed = isFirework ? ((Math.random() - 0.5) * 1.5) : ((2.0 + Math.random() * 4.0) * (Math.random() > 0.5 ? 1 : -1));
+                const isFirework = Math.random() < 0.48; 
+
+                const radialSpeed = isFirework ? (2.6 + Math.random() * 4.8) : (0.9 + Math.random() * 2.0); 
+                const swirlSpeed = isFirework ? ((Math.random() - 0.5) * 1.2) : ((1.6 + Math.random() * 3.2) * (Math.random() > 0.5 ? 1 : -1));
 
                 sparks.push({
                     x: centerX + Math.cos(angle) * currentHoleRadius,
                     y: centerY + Math.sin(angle) * currentHoleRadius,
                     vx: Math.cos(angle) * radialSpeed - Math.sin(angle) * swirlSpeed,
                     vy: Math.sin(angle) * radialSpeed + Math.cos(angle) * swirlSpeed,
-                    alpha: 1.0,
-                    decay: isFirework ? (0.005 + Math.random() * 0.007) : (0.006 + Math.random() * 0.01), 
-                    size: isFirework ? (0.6 + Math.random() * 1.4) : (0.5 + Math.random() * 1.2), 
-                    hue: targetHue + (Math.random() - 0.5) * (isFirework ? 45 : 25),
+                    alpha: 0.85,
+                    decay: isFirework ? (0.008 + Math.random() * 0.009) : (0.01 + Math.random() * 0.012), 
+                    size: isFirework ? (0.5 + Math.random() * 1.1) : (0.4 + Math.random() * 1.0), 
+                    hue: targetHue + (Math.random() - 0.5) * (isFirework ? 42 : 24),
                     isFirework: isFirework,
-                    friction: isFirework ? 0.985 : 0.975
+                    friction: isFirework ? 0.982 : 0.97
                 });
             }
         });
+
+
 
 
         function showFxLabel(label) {
@@ -602,33 +622,33 @@
             if (!audioCtx) return;
             const now = audioCtx.currentTime;
 
-            if (flangerWetGain) flangerWetGain.gain.setTargetAtTime(0.65 * fxVertical, now, 0.035);
-            if (flangerFeedback) flangerFeedback.gain.setTargetAtTime(0.42 * fxVertical, now, 0.035);
-            if (flangerLfoGain) flangerLfoGain.gain.setTargetAtTime(0.001 + 0.006 * fxVertical, now, 0.035);
-            if (flangerLfo) flangerLfo.frequency.setTargetAtTime(0.2 + 1.8 * fxVertical, now, 0.035);
+            if (flangerWetGain) flangerWetGain.gain.setTargetAtTime(0.92 * fxVertical, now, 0.028);
+            if (flangerFeedback) flangerFeedback.gain.setTargetAtTime(0.62 * fxVertical, now, 0.028);
+            if (flangerLfoGain) flangerLfoGain.gain.setTargetAtTime(0.001 + 0.010 * fxVertical, now, 0.028);
+            if (flangerLfo) flangerLfo.frequency.setTargetAtTime(0.25 + 3.2 * fxVertical, now, 0.028);
 
-            if (phaserWetGain) phaserWetGain.gain.setTargetAtTime(0.58 * fxHorizontal, now, 0.045);
-            if (reverbWetGain) reverbWetGain.gain.setTargetAtTime(0.34 * fxHorizontal, now, 0.06);
+            if (phaserWetGain) phaserWetGain.gain.setTargetAtTime(0.82 * fxHorizontal, now, 0.038);
+            if (reverbWetGain) reverbWetGain.gain.setTargetAtTime(0.52 * fxHorizontal, now, 0.055);
 
             if (phaserFilters.length) {
                 phaserFilters.forEach((filter, index) => {
-                    const freq = 420 + index * 250 + fxHorizontal * 1200 + Math.sin(performance.now() * 0.004 + index) * 140 * fxHorizontal;
+                    const freq = 320 + index * 300 + fxHorizontal * 2200 + Math.sin(performance.now() * 0.006 + index) * 260 * fxHorizontal;
                     filter.frequency.setTargetAtTime(freq, now, 0.05);
-                    filter.Q.setTargetAtTime(0.8 + fxHorizontal * 3.2, now, 0.05);
+                    filter.Q.setTargetAtTime(0.9 + fxHorizontal * 5.2, now, 0.04);
                 });
             }
 
-            if (bitcrusherWetGain) bitcrusherWetGain.gain.setTargetAtTime(0.85 * fxGlitch, now, 0.025);
+            if (bitcrusherWetGain) bitcrusherWetGain.gain.setTargetAtTime(0.72 * fxGlitch, now, 0.018);
 
             if (localAudioElement) {
-                const targetRate = 1.0 + fxDiagonal * 0.38 + fxGlitch * 0.18;
+                const targetRate = 1.0 + fxDiagonal * 0.58 + fxGlitch * 0.12;
                 localAudioElement.playbackRate += (targetRate - localAudioElement.playbackRate) * 0.18;
             }
         }
 
         function triggerGlitch() {
             fxGlitch = Math.min(1.0, fxGlitch + 0.95);
-            fxFlash = Math.min(1.0, fxFlash + 0.85);
+            fxFlash = Math.min(0.45, fxFlash + 0.32);
             showFxLabel('Glitch');
         }
 
@@ -663,20 +683,20 @@
 
             const absX = Math.abs(dx);
             const absY = Math.abs(dy);
-            const intensity = Math.min(1.0, distance / 42);
+            const intensity = Math.min(1.0, distance / 30);
 
-            if (speed > 1.7 && distance > 28) triggerGlitch();
+            if (speed > 1.55 && distance > 24) triggerGlitch();
 
             if (absY > absX * 1.35 && distance > 8) {
-                fxVertical = Math.min(1.0, fxVertical + intensity * 0.55);
+                fxVertical = Math.min(1.0, fxVertical + intensity * 0.82);
                 showFxLabel('Flanger électrique');
                 spawnElectricDust(x, y, 8 + Math.floor(intensity * 12), 205);
             } else if (absX > absY * 1.35 && distance > 8) {
-                fxHorizontal = Math.min(1.0, fxHorizontal + intensity * 0.5);
+                fxHorizontal = Math.min(1.0, fxHorizontal + intensity * 0.76);
                 showFxLabel('Phaser + Reverb');
                 spawnElectricDust(x, y, 5 + Math.floor(intensity * 8), targetHue + 20);
             } else if (distance > 10) {
-                fxDiagonal = Math.min(1.0, fxDiagonal + intensity * 0.65);
+                fxDiagonal = Math.min(1.0, fxDiagonal + intensity * 0.9);
                 showFxLabel('Speed Up');
                 spawnElectricDust(x, y, 8 + Math.floor(intensity * 10), 35);
             }
@@ -893,11 +913,11 @@
             smoothMid += (mid - smoothMid) * 0.16;
             smoothHigh += (high - smoothHigh) * 0.16;
 
-            fxVertical *= 0.94;
-            fxHorizontal *= 0.945;
-            fxDiagonal *= 0.93;
-            fxGlitch *= 0.82;
-            fxFlash *= 0.88;
+            fxVertical *= 0.965;
+            fxHorizontal *= 0.965;
+            fxDiagonal *= 0.955;
+            fxGlitch *= 0.74;
+            fxFlash *= 0.78;
             updateAudioFx();
 
             const time = performance.now() * 0.001 * (1.0 + smoothBass * 0.4 + fxDiagonal * 0.35);
@@ -907,7 +927,7 @@
             
             const centralPulse = smoothBass * (minScreenDim * 0.08);
             const holeRadius = minScreenDim * 0.16 + centralPulse;
-            const glowRadius = minScreenDim * 0.42 + (smoothBass * 0.15 + smoothMid * 0.20 + fxHorizontal * 0.18) * minScreenDim;
+            const glowRadius = minScreenDim * 0.42 + (smoothBass * 0.15 + smoothMid * 0.20 + fxHorizontal * 0.30) * minScreenDim;
             
             const viewOffsetX = (centerX - mouseX);
             const viewOffsetY = (centerY - mouseY);
@@ -928,21 +948,21 @@
                 hoverIntensity += (0.0 - hoverIntensity) * 0.06;
             }
 
-            
+            // Génération procédurale bimodale basée sur le rythme
             if (smoothBass > 0.15) {
                 const sparkCount = Math.floor((smoothBass + fxVertical * 0.12 + fxDiagonal * 0.08) * (window.innerWidth < 768 ? 3 : 6)); 
                 for (let k = 0; k < sparkCount; k++) {
                     const angle = Math.random() * Math.PI * 2;
                     
-                    
-                    const isFirework = Math.random() < 0.35; 
+                    // 25% de chances de générer une étincelle type "feu d'artifice" à haute énergie
+                    const isFirework = Math.random() < 0.25; 
                     
                     let radialSpeed, swirlSpeed, decay, friction;
                     if (isFirework) {
-                        radialSpeed = 3.0 + smoothBass * 4.5; 
-                        swirlSpeed = (Math.random() - 0.5) * 1.0;  
-                        decay = 0.005 + Math.random() * 0.009;     
-                        friction = 0.985;                          
+                        radialSpeed = 3.0 + smoothBass * 4.5; // Vélocité d'échappement élevée
+                        swirlSpeed = (Math.random() - 0.5) * 1.0;  // Trajectoire plus rectiligne vers l'extérieur
+                        decay = 0.005 + Math.random() * 0.007;     // Durée de vie plus longue pour s'éloigner du centre
+                        friction = 0.985;                          // Moins de résistance pour préserver l'impulsion
                     } else {
                         radialSpeed = 0.3 + smoothBass * 1.2;
                         swirlSpeed = (1.2 + smoothMid * 3.5) * (Math.random() > 0.5 ? 1 : -1);
@@ -970,18 +990,18 @@
                 updateProgressUI(currentSecs, audioBuffer.duration);
             }
 
-            
+            // 1. Rendu du Halo (Glow) Arrière
             const glowGrad = ctx.createRadialGradient(coreX, coreY, holeRadius * 0.5, coreX, coreY, glowRadius);
-            glowGrad.addColorStop(0, `hsla(${baseHue + fxVertical * 25}, 90%, 55%, ${0.28 * (0.6 + smoothBass * 0.4 + fxHorizontal * 0.55)})`);
-            glowGrad.addColorStop(0.25, `hsla(${baseHue + 25 + fxDiagonal * 40}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5 + fxHorizontal * 0.9)})`);
-            glowGrad.addColorStop(0.6, `hsla(${baseHue - 20}, 70%, 30%, 0.05)`);
+            glowGrad.addColorStop(0, `hsla(${baseHue + fxVertical * 25}, 90%, 55%, ${0.28 * (0.6 + smoothBass * 0.4 + fxHorizontal * 0.85)})`);
+            glowGrad.addColorStop(0.25, `hsla(${baseHue + 25 + fxDiagonal * 40}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5 + fxHorizontal * 1.25)})`);
+            glowGrad.addColorStop(0.6, `hsla(${baseHue - 20}, 70%, 30%, 0.03)`);
             glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = glowGrad;
             ctx.beginPath();
             ctx.arc(coreX, coreY, glowRadius, 0, Math.PI * 2);
             ctx.fill();
 
-            
+            // 2. Rendu de la Matrice Quantique de Points
             ctx.globalCompositeOperation = 'source-over';
             for (let r = 0; r < totalRays; r++) {
                 const baseAngle = (r / totalRays) * Math.PI * 2 + (time * (0.015 + fxDiagonal * 0.085));
@@ -1025,7 +1045,7 @@
                 }
             }
 
-           
+            // 3. Physique & Rendu cinétique des étincelles (Accrétion + Éjection Feu d'Artifice)
             ctx.globalCompositeOperation = 'lighter'; 
             for (let i = sparks.length - 1; i >= 0; i--) {
                 const p = sparks[i];
@@ -1035,14 +1055,14 @@
                 const dist = Math.hypot(dx, dy);
                 
                 if (dist > 10) {
-                    
+                    // Les particules de type feu d'artifice subissent une gravité atténuée (15%) pour permettre l'éjection
                     const gravityFactor = p.isFirework ? 0.15 : 1.0;
                     const pull = ((0.04 + smoothBass * 0.08) / (dist * 0.008)) * gravityFactor;
                     p.vx -= (dx / dist) * pull;
                     p.vy -= (dy / dist) * pull;
                 }
                 
-                
+                // Intégration cinétique et ajout de turbulences corrélées aux médiums
                 p.x += p.vx + (Math.sin(p.y * 0.04 + time) * 0.15 * smoothMid);
                 p.y += p.vy + (Math.cos(p.x * 0.04 + time) * 0.15 * smoothMid);
                 
@@ -1065,10 +1085,10 @@
             }
             
 
-            
+            // 3B. Arcs électriques liés au geste vertical / flanger
             if (fxVertical > 0.04) {
                 ctx.globalCompositeOperation = 'lighter';
-                const arcCount = window.innerWidth < 768 ? 4 : 7;
+                const arcCount = window.innerWidth < 768 ? 6 : 11;
                 for (let a = 0; a < arcCount; a++) {
                     const startAngle = Math.random() * Math.PI * 2;
                     const arcRadius = holeRadius * (1.04 + Math.random() * 0.28);
@@ -1078,7 +1098,7 @@
                     for (let p = 0; p <= points; p++) {
                         const t = p / points;
                         const angle = startAngle + t * (0.35 + Math.random() * 0.65);
-                        const jitter = (Math.random() - 0.5) * 22 * fxVertical;
+                        const jitter = (Math.random() - 0.5) * 34 * fxVertical;
                         const x = coreX + Math.cos(angle) * (arcRadius + jitter);
                         const y = coreY + Math.sin(angle) * (arcRadius + jitter);
                         if (p === 0) ctx.moveTo(x, y);
@@ -1086,21 +1106,64 @@
                     }
 
                     ctx.strokeStyle = `hsla(${baseHue + 50}, 100%, 72%, ${0.18 + fxVertical * 0.55})`;
-                    ctx.lineWidth = 0.8 + fxVertical * 2.0;
+                    ctx.lineWidth = 1.0 + fxVertical * 2.8;
                     ctx.stroke();
                 }
             }
 
-            
+            // 3C. Micro-lueur douce liée au glitch / mouvement rapide.
+            // Pas de flash blanc violent : sécurité visuelle améliorée.
             if (fxFlash > 0.03) {
                 ctx.globalCompositeOperation = 'screen';
-                ctx.fillStyle = `rgba(255, 255, 255, ${fxFlash * 0.12})`;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                const glitchGlow = ctx.createRadialGradient(coreX, coreY, 0, coreX, coreY, glowRadius * 0.85);
+                glitchGlow.addColorStop(0, `hsla(${baseHue + 35}, 100%, 75%, ${fxFlash * 0.08})`);
+                glitchGlow.addColorStop(0.5, `hsla(${baseHue + 10}, 90%, 55%, ${fxFlash * 0.025})`);
+                glitchGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = glitchGlow;
+                ctx.beginPath();
+                ctx.arc(coreX, coreY, glowRadius * 0.85, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 3D. Ondes d'énergie lumineuse déclenchées au clic / tactile
+            ctx.globalCompositeOperation = 'lighter';
+            for (let w = energyWaves.length - 1; w >= 0; w--) {
+                const wave = energyWaves[w];
+                wave.radius += wave.speed;
+                wave.alpha *= 0.965;
+                wave.width += 0.42;
+
+                const maxRadius = Math.max(canvas.width, canvas.height) * 0.82;
+                if (wave.alpha < 0.018 || wave.radius > maxRadius) {
+                    energyWaves.splice(w, 1);
+                    continue;
+                }
+
+                const waveGrad = ctx.createRadialGradient(
+                    coreX, coreY, Math.max(0, wave.radius - wave.width * 1.8),
+                    coreX, coreY, wave.radius + wave.width * 2.2
+                );
+                waveGrad.addColorStop(0.00, 'rgba(0,0,0,0)');
+                waveGrad.addColorStop(0.42, `hsla(${wave.hue}, 100%, 68%, ${wave.alpha * 0.10})`);
+                waveGrad.addColorStop(0.50, `hsla(${wave.hue + 28}, 100%, 78%, ${wave.alpha * 0.34})`);
+                waveGrad.addColorStop(0.58, `hsla(${wave.hue}, 100%, 62%, ${wave.alpha * 0.10})`);
+                waveGrad.addColorStop(1.00, 'rgba(0,0,0,0)');
+
+                ctx.fillStyle = waveGrad;
+                ctx.beginPath();
+                ctx.arc(coreX, coreY, wave.radius + wave.width * 2.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = `hsla(${wave.hue + 15}, 100%, 78%, ${wave.alpha * 0.42})`;
+                ctx.lineWidth = Math.max(1.0, wave.width * 0.22);
+                ctx.beginPath();
+                ctx.arc(coreX, coreY, wave.radius, 0, Math.PI * 2);
+                ctx.stroke();
             }
 
             ctx.globalCompositeOperation = 'source-over'; 
 
-           
+            // 4. Anneaux d'accrétion énergétiques
             const ringCount = window.innerWidth < 768 ? 3 : 5;
             const ringTime = time * 1.8;
             for (let j = 0; j < ringCount; j++) {
@@ -1124,7 +1187,7 @@
                 ctx.stroke();
             }
 
-           
+            // 5. Distorsion gravitationnelle & Singularité
             const lensingGrad = ctx.createRadialGradient(coreX, coreY, holeRadius, coreX, coreY, holeRadius * 1.25);
             lensingGrad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
             lensingGrad.addColorStop(0.4, 'rgba(0, 0, 0, 0.85)');
