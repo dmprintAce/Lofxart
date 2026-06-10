@@ -29,7 +29,7 @@
             z-index: 1;
         }
         
-        /* Overlay d'interaction initiale */
+        
         #ui-overlay {
             position: absolute;
             top: 0;
@@ -66,7 +66,7 @@
             text-align: center;
         }
 
-        /* Panneau de contrôle */
+        
         #controls-container {
             position: absolute;
             bottom: 20px;
@@ -280,11 +280,11 @@
             transform: translate(-70%, -70%);
             font-family: 'Segoe UI', sans-serif;
             font-size: 1rem;
-            color: rgba(255, 255, 255, 0.15); /* Transparence élevée pour la subtilité */
-            pointer-events: none; /* Le texte ne bloque pas les clics */
+            color: rgba(255, 255, 255, 0.15); 
+            pointer-events: none; 
             z-index: 5;
             letter-spacing: 4px;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3); /* Effet néon très léger */
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
             user-select: none;
             white-space: nowrap;
         }
@@ -294,7 +294,7 @@
 
     <div id="ui-overlay" onclick="startExperience()">
         <div id="status-text">CLIQUEZ POUR LANCER L'EXPÉRIENCE</div>
-        <div id="sub-status-text">Audio intégré : down now - Remix</div>
+        <div id="sub-status-text">Audio intégré : LofxArt - DownNow</div>
     </div>
 
     <div id="controls-container">
@@ -338,7 +338,30 @@
         let audioBuffer = null;
         let bufferSourceNode = null;
         let localAudioElement = null;
+
         
+        let mediaSourceNode = null;
+        let dryGain = null;
+        let flangerDelay = null;
+        let flangerFeedback = null;
+        let flangerWetGain = null;
+        let flangerLfo = null;
+        let flangerLfoGain = null;
+        let phaserFilters = [];
+        let phaserWetGain = null;
+        let reverbConvolver = null;
+        let reverbWetGain = null;
+        let bitcrusherNode = null;
+        let bitcrusherWetGain = null;
+
+        
+        let fxVertical = 0;
+        let fxHorizontal = 0;
+        let fxDiagonal = 0;
+        let fxGlitch = 0;
+        let fxFlash = 0;
+        let fxLabelTimeout = null;
+
         let startTime = 0;
         let pausedTime = 0;
         let isPlaying = false;
@@ -426,7 +449,7 @@
             endPointerInteraction();
         }, { passive: true });
 
-        // Clic générant une déflagration de feux d'artifice éjectés à haute vélocité
+        
         canvas.addEventListener('click', (e) => {
             if (!isSetup) return;
             
@@ -445,7 +468,7 @@
 
             for (let i = 0; i < burstCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
-                // 60% des particules du clic s'échappent complètement sous forme de feu d'artifice
+                
                 const isFirework = Math.random() < 0.60; 
                 
                 const radialSpeed = isFirework ? (3.5 + Math.random() * 6.0) : (1.0 + Math.random() * 2.5); 
@@ -734,6 +757,8 @@
                 updatePlayerIcons();
             } catch (err) {
                 console.error("Lecture audio impossible depuis le chemin intégré :", AUDIO_FILE_PATH, err);
+                document.getElementById('sub-status-text').innerText =
+                    "Erreur audio : vérifiez le fichier audio/down-now-Remix.mp3";
                 isPlaying = false;
                 updatePlayerIcons();
             }
@@ -762,9 +787,9 @@
             };
         }
 
-        function togglePlay() {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+        async function togglePlay() {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                await audioCtx.resume();
             }
             if (useBufferMode) {
                 if (isPlaying) {
@@ -903,21 +928,21 @@
                 hoverIntensity += (0.0 - hoverIntensity) * 0.06;
             }
 
-            // Génération procédurale bimodale basée sur le rythme
+            
             if (smoothBass > 0.15) {
                 const sparkCount = Math.floor((smoothBass + fxVertical * 0.12 + fxDiagonal * 0.08) * (window.innerWidth < 768 ? 3 : 6)); 
                 for (let k = 0; k < sparkCount; k++) {
                     const angle = Math.random() * Math.PI * 2;
                     
-                    // 25% de chances de générer une étincelle type "feu d'artifice" à haute énergie
-                    const isFirework = Math.random() < 0.25; 
+                    
+                    const isFirework = Math.random() < 0.35; 
                     
                     let radialSpeed, swirlSpeed, decay, friction;
                     if (isFirework) {
-                        radialSpeed = 3.0 + smoothBass * 4.5; // Vélocité d'échappement élevée
-                        swirlSpeed = (Math.random() - 0.5) * 1.0;  // Trajectoire plus rectiligne vers l'extérieur
-                        decay = 0.005 + Math.random() * 0.007;     // Durée de vie plus longue pour s'éloigner du centre
-                        friction = 0.985;                          // Moins de résistance pour préserver l'impulsion
+                        radialSpeed = 3.0 + smoothBass * 4.5; 
+                        swirlSpeed = (Math.random() - 0.5) * 1.0;  
+                        decay = 0.005 + Math.random() * 0.009;     
+                        friction = 0.985;                          
                     } else {
                         radialSpeed = 0.3 + smoothBass * 1.2;
                         swirlSpeed = (1.2 + smoothMid * 3.5) * (Math.random() > 0.5 ? 1 : -1);
@@ -945,18 +970,18 @@
                 updateProgressUI(currentSecs, audioBuffer.duration);
             }
 
-            // 1. Rendu du Halo (Glow) Arrière
+            
             const glowGrad = ctx.createRadialGradient(coreX, coreY, holeRadius * 0.5, coreX, coreY, glowRadius);
             glowGrad.addColorStop(0, `hsla(${baseHue + fxVertical * 25}, 90%, 55%, ${0.28 * (0.6 + smoothBass * 0.4 + fxHorizontal * 0.55)})`);
             glowGrad.addColorStop(0.25, `hsla(${baseHue + 25 + fxDiagonal * 40}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5 + fxHorizontal * 0.9)})`);
-            glowGrad.addColorStop(0.6, `hsla(${baseHue - 20}, 70%, 30%, 0.03)`);
+            glowGrad.addColorStop(0.6, `hsla(${baseHue - 20}, 70%, 30%, 0.05)`);
             glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = glowGrad;
             ctx.beginPath();
             ctx.arc(coreX, coreY, glowRadius, 0, Math.PI * 2);
             ctx.fill();
 
-            // 2. Rendu de la Matrice Quantique de Points
+            
             ctx.globalCompositeOperation = 'source-over';
             for (let r = 0; r < totalRays; r++) {
                 const baseAngle = (r / totalRays) * Math.PI * 2 + (time * (0.015 + fxDiagonal * 0.085));
@@ -1000,7 +1025,7 @@
                 }
             }
 
-            // 3. Physique & Rendu cinétique des étincelles (Accrétion + Éjection Feu d'Artifice)
+           
             ctx.globalCompositeOperation = 'lighter'; 
             for (let i = sparks.length - 1; i >= 0; i--) {
                 const p = sparks[i];
@@ -1010,14 +1035,14 @@
                 const dist = Math.hypot(dx, dy);
                 
                 if (dist > 10) {
-                    // Les particules de type feu d'artifice subissent une gravité atténuée (15%) pour permettre l'éjection
+                    
                     const gravityFactor = p.isFirework ? 0.15 : 1.0;
                     const pull = ((0.04 + smoothBass * 0.08) / (dist * 0.008)) * gravityFactor;
                     p.vx -= (dx / dist) * pull;
                     p.vy -= (dy / dist) * pull;
                 }
                 
-                // Intégration cinétique et ajout de turbulences corrélées aux médiums
+                
                 p.x += p.vx + (Math.sin(p.y * 0.04 + time) * 0.15 * smoothMid);
                 p.y += p.vy + (Math.cos(p.x * 0.04 + time) * 0.15 * smoothMid);
                 
@@ -1040,7 +1065,7 @@
             }
             
 
-            // 3B. Arcs électriques liés au geste vertical / flanger
+            
             if (fxVertical > 0.04) {
                 ctx.globalCompositeOperation = 'lighter';
                 const arcCount = window.innerWidth < 768 ? 4 : 7;
@@ -1066,7 +1091,7 @@
                 }
             }
 
-            // 3C. Flash bref lié au glitch / mouvement rapide
+            
             if (fxFlash > 0.03) {
                 ctx.globalCompositeOperation = 'screen';
                 ctx.fillStyle = `rgba(255, 255, 255, ${fxFlash * 0.12})`;
@@ -1075,7 +1100,7 @@
 
             ctx.globalCompositeOperation = 'source-over'; 
 
-            // 4. Anneaux d'accrétion énergétiques
+           
             const ringCount = window.innerWidth < 768 ? 3 : 5;
             const ringTime = time * 1.8;
             for (let j = 0; j < ringCount; j++) {
@@ -1099,7 +1124,7 @@
                 ctx.stroke();
             }
 
-            // 5. Distorsion gravitationnelle & Singularité
+           
             const lensingGrad = ctx.createRadialGradient(coreX, coreY, holeRadius, coreX, coreY, holeRadius * 1.25);
             lensingGrad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
             lensingGrad.addColorStop(0.4, 'rgba(0, 0, 0, 0.85)');
