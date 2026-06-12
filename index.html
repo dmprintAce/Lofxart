@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Expérience Sonore Nocturne - Black Hole Core</title>
+    <title>L0fxArt — Black Hole Audio Visualizer</title>
     <style>
         * {
             box-sizing: border-box;
@@ -34,7 +34,7 @@
             -webkit-user-select: none;
         }
         
-        
+        /* Overlay d'interaction initiale */
         #ui-overlay {
             position: absolute;
             top: 0;
@@ -269,7 +269,134 @@
                 font-size: 0.65rem;
             }
         }
-    </style>
+    
+        :root {
+            --panel-bg: rgba(7, 10, 18, 0.54);
+            --panel-border: rgba(160, 210, 255, 0.11);
+            --text-main: rgba(245, 250, 255, 0.92);
+            --text-soft: rgba(185, 205, 230, 0.62);
+            --neon-blue: rgba(80, 190, 255, 0.34);
+            --neon-purple: rgba(170, 92, 255, 0.22);
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 50% 50%, rgba(60, 130, 255, 0.055), transparent 28%),
+                radial-gradient(circle at 50% 55%, rgba(160, 60, 255, 0.045), transparent 38%),
+                linear-gradient(180deg, rgba(255,255,255,0.025), transparent 26%, rgba(0,0,0,0.2));
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0.15;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+        }
+
+        #controls-container {
+            background:
+                linear-gradient(145deg, rgba(18, 24, 38, 0.66), rgba(4, 6, 12, 0.38)) !important;
+            border: 1px solid var(--panel-border) !important;
+            box-shadow:
+                0 24px 70px rgba(0,0,0,0.62),
+                inset 0 1px 0 rgba(255,255,255,0.07),
+                0 0 34px rgba(70, 170, 255, 0.055) !important;
+            opacity: 0.42 !important;
+        }
+
+        @media (pointer: fine) {
+            #controls-container:hover {
+                opacity: 1 !important;
+                transform: translateY(-2px);
+                background:
+                    linear-gradient(145deg, rgba(22, 30, 48, 0.82), rgba(5, 8, 17, 0.64)) !important;
+            }
+        }
+
+        #play-btn {
+            background:
+                radial-gradient(circle at 35% 30%, rgba(255,255,255,0.28), rgba(120,180,255,0.10) 42%, rgba(0,0,0,0.42)) !important;
+            border-color: rgba(190, 220, 255, 0.20) !important;
+            box-shadow: 0 0 22px rgba(75, 185, 255, 0.12), inset 0 1px 0 rgba(255,255,255,0.12);
+        }
+
+        #play-btn:hover {
+            background: rgba(230, 248, 255, 0.92) !important;
+            transform: scale(1.04);
+            box-shadow: 0 0 26px rgba(140, 220, 255, 0.28);
+        }
+
+        input[type="range"] {
+            background: linear-gradient(90deg, rgba(95, 190, 255, 0.35), rgba(190, 95, 255, 0.14), rgba(255,255,255,0.08)) !important;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            background: rgba(244, 252, 255, 0.96) !important;
+            box-shadow: 0 0 12px rgba(120,220,255,0.55), 0 0 26px rgba(180,90,255,0.28) !important;
+        }
+
+        #fx-hud {
+            background: linear-gradient(145deg, rgba(13, 19, 31, 0.64), rgba(3, 5, 10, 0.40)) !important;
+            border-color: rgba(150, 210, 255, 0.13) !important;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+        }
+
+        #project-branding {
+            top: auto !important;
+            left: auto !important;
+            right: max(18px, 2.2vw) !important;
+            bottom: max(18px, 2.6vh) !important;
+            transform: none !important;
+            color: rgba(232, 246, 255, 0.22) !important;
+            text-shadow: 0 0 20px rgba(90, 200, 255, 0.18), 0 0 38px rgba(180, 90, 255, 0.12) !important;
+            font-size: clamp(0.72rem, 1.1vw, 1rem) !important;
+            letter-spacing: clamp(2px, 0.35vw, 4px) !important;
+        }
+
+        #ui-overlay {
+            background:
+                radial-gradient(circle at 50% 48%, rgba(18, 32, 52, 0.28), transparent 34%),
+                radial-gradient(circle at 50% 55%, rgba(92, 48, 160, 0.14), transparent 42%),
+                rgba(0, 0, 0, 0.94) !important;
+        }
+
+        #status-text {
+            color: var(--text-main) !important;
+            text-shadow: 0 0 22px rgba(110, 210, 255, 0.24);
+        }
+
+        #sub-status-text {
+            color: var(--text-soft) !important;
+        }
+
+        @media (max-width: 768px) {
+            #controls-container {
+                width: min(420px, calc(100% - 28px)) !important;
+                left: 14px !important;
+                bottom: 14px !important;
+                opacity: 0.88 !important;
+                border-radius: 20px !important;
+            }
+
+            #project-branding {
+                right: 16px !important;
+                bottom: 74px !important;
+            }
+        }
+
+</style>
 </head>
 <body>
 
@@ -285,11 +412,11 @@
             transform: translate(-70%, -70%);
             font-family: 'Segoe UI', sans-serif;
             font-size: 1rem;
-            color: rgba(255, 255, 255, 0.15); 
-            pointer-events: none; 
+            color: rgba(255, 255, 255, 0.15); /* Transparence élevée pour la subtilité */
+            pointer-events: none; /* Le texte ne bloque pas les clics */
             z-index: 5;
             letter-spacing: 4px;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.25); 
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3); /* Effet néon très léger */
             user-select: none;
             white-space: nowrap;
         }
@@ -299,7 +426,7 @@
 
     <div id="ui-overlay" onclick="startExperience()">
         <div id="status-text">CLIQUEZ POUR LANCER L'EXPÉRIENCE</div>
-        <div id="sub-status-text">Audio intégré : BlackHoleCore</div>
+        <div id="sub-status-text">Audio intégré : Tuto BlackHoleCore</div>
     </div>
 
     <div id="controls-container">
@@ -341,7 +468,7 @@
         const progressSlider = document.getElementById('progress-slider');
         const currentTimeLabel = document.getElementById('current-time');
         const totalTimeLabel = document.getElementById('total-time');
-        const AUDIO_FILE_PATH = "audio/BlackHoleCore.mp3";
+        const AUDIO_FILE_PATH = "./audio/BlackHoleCore.mp3";
 
         let audioCtx;
         let analyser;
@@ -353,7 +480,7 @@
         let bufferSourceNode = null;
         let localAudioElement = null;
 
-        
+        // Chaîne audio FX
         let mediaSourceNode = null;
         let dryGain = null;
         let flangerDelay = null;
@@ -379,13 +506,13 @@
         let bitcrusherNode = null;
         let bitcrusherWetGain = null;
 
-        
+        // Intensités FX contrôlées par les gestes
         let fxVertical = 0;
         let fxHorizontal = 0;
         let fxHorizontalAlt = 0;
         let fxVerticalWave = 0;
         let fxDiagonal = 0;
-        let fxSpeed = 0; 
+        let fxSpeed = 0; // -1 = slow down, +1 = speed up
         let fxGlitch = 0;
         let fxFlash = 0;
         let fxTapEcho = 0;
@@ -431,10 +558,16 @@
         let hoverWaveTime = 0;
         let hoverIntensity = 0;
 
-       
+        // Black hole dynamics state
         let bhRotation = 0;
         let bhOrbital = [0, Math.PI * 0.60, Math.PI * 1.35];
         let bhPulse = 0;
+
+        // Performance guards
+        const MAX_SPARKS = window.innerWidth < 768 ? 170 : 260;
+        const MAX_WAVES = 5;
+        let lastFrameTime = performance.now();
+        let frameDt = 16.7;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -444,11 +577,11 @@
             targetMY = window.innerHeight / 2;
 
             if (window.innerWidth < 768) {
-                totalRays = 50;     
-                dotsPerRay = 25;     
+                totalRays = 44;     
+                dotsPerRay = 22;     
             } else {
-                totalRays = 85;     
-                dotsPerRay = 40;     
+                totalRays = 72;     
+                dotsPerRay = 34;     
             }
         }
         window.addEventListener('resize', resizeCanvas);
@@ -506,7 +639,7 @@
             lastTouchEventTime = now;
             activeTouchId = null;
 
-          
+            // Sur mobile, le tap doit être déclenché ici, car preventDefault peut supprimer le click synthétique.
             if (!gestureMoved && totalDistance < 9 && tapDuration < 420) {
                 const tapX = t ? t.clientX : lastPointerX;
                 const tapY = t ? t.clientY : lastPointerY;
@@ -524,7 +657,7 @@
         }, { passive: false });
 
         window.addEventListener('pointerdown', (e) => {
-            
+            // Sur Android, on privilégie les événements touch natifs pour éviter le faux "click only".
             if (performance.now() - lastTouchEventTime < 700) return;
             beginPointerInteraction(e.clientX, e.clientY);
         }, { passive: true });
@@ -550,7 +683,7 @@
             if (!isSetup) return;
 
             const now = performance.now();
-           
+            // Anti double-déclenchement entre touchend et click synthétique.
             if (now - lastTapFxTime < 180) return;
             lastTapFxTime = now;
 
@@ -561,20 +694,21 @@
             const nextIndex = (currentIndex + 1) % colorPalette.length;
             targetHue = colorPalette[nextIndex];
 
-            const burstCount = window.innerWidth < 768 ? 38 : 82; 
+            const burstCount = window.innerWidth < 768 ? 24 : 48; 
             const minScreenDim = Math.min(canvas.width, canvas.height);
             const currentHoleRadius = minScreenDim * 0.16;
 
-          
+            // Onde lumineuse douce + diffuse.
             energyWaves.push({
                 radius: currentHoleRadius * 0.82,
-                alpha: 0.36,
-                width: 30,
+                alpha: 0.32,
+                width: 26,
                 hue: targetHue,
-                speed: Math.max(5.5, minScreenDim * 0.013)
+                speed: Math.max(5.0, minScreenDim * 0.011)
             });
+            if (energyWaves.length > MAX_WAVES) energyWaves.splice(0, energyWaves.length - MAX_WAVES);
 
-            
+            // Echo delay de tap.
             fxTapEcho = Math.min(1.0, fxTapEcho + 1.0);
             showFxLabel('Echo Delay');
 
@@ -600,11 +734,11 @@
             }
         }
 
-        
+        // Clic souris / desktop.
         canvas.addEventListener('click', (e) => {
             if (!isSetup) return;
 
-           
+            // Si c'était un vrai swipe tactile, on ignore le click synthétique.
             if (performance.now() - lastTouchEventTime < 900) return;
 
             triggerTapFx(e.clientX, e.clientY);
@@ -688,7 +822,7 @@
             phaserWetGain = audioCtx.createGain();
             phaserWetGain.gain.value = 0.0;
 
-           
+            // Delay spatial couplé au phaser pour rendre le geste horizontal très perceptible.
             phaserDelay = audioCtx.createDelay(0.9);
             phaserDelay.delayTime.value = 0.18;
             phaserDelayFeedback = audioCtx.createGain();
@@ -696,7 +830,7 @@
             phaserDelayWetGain = audioCtx.createGain();
             phaserDelayWetGain.gain.value = 0.0;
 
-           
+            // Effet horizontal opposé : sweep filtré / espace mouvant.
             horizontalSweepFilter = audioCtx.createBiquadFilter();
             horizontalSweepFilter.type = 'bandpass';
             horizontalSweepFilter.frequency.value = 780;
@@ -704,7 +838,7 @@
             horizontalSweepWetGain = audioCtx.createGain();
             horizontalSweepWetGain.gain.value = 0.0;
 
-           
+            // Effet vertical opposé : vague sonore ondulatoire courte.
             verticalWaveDelay = audioCtx.createDelay(0.55);
             verticalWaveDelay.delayTime.value = 0.075;
             verticalWaveFeedback = audioCtx.createGain();
@@ -717,7 +851,7 @@
             reverbWetGain = audioCtx.createGain();
             reverbWetGain.gain.value = 0.0;
 
-            
+            // Echo déclenché au tap/clic, avec feedback qui se diffuse puis s'estompe.
             tapDelay = audioCtx.createDelay(1.2);
             tapDelay.delayTime.value = 0.34;
             tapDelayFeedback = audioCtx.createGain();
@@ -783,16 +917,16 @@
                 fxDiagonal, Math.abs(fxSpeed), fxGlitch, fxTapEcho
             );
 
-            
+            // Le dry baisse davantage pendant les effets pour mieux ressentir l'impact.
             if (dryGain) dryGain.gain.setTargetAtTime(0.86 - activeFx * 0.30, now, 0.035);
 
-            
+            // Vertical haut : flanger électrique accentué.
             if (flangerWetGain) flangerWetGain.gain.setTargetAtTime(1.18 * fxVertical, now, 0.022);
             if (flangerFeedback) flangerFeedback.gain.setTargetAtTime(0.74 * fxVertical, now, 0.022);
             if (flangerLfoGain) flangerLfoGain.gain.setTargetAtTime(0.001 + 0.016 * fxVertical, now, 0.022);
             if (flangerLfo) flangerLfo.frequency.setTargetAtTime(0.35 + 5.2 * fxVertical, now, 0.022);
 
-            
+            // Vertical bas : vague sonore ondulatoire.
             if (verticalWaveWetGain) verticalWaveWetGain.gain.setTargetAtTime(0.86 * fxVerticalWave, now, 0.035);
             if (verticalWaveFeedback) verticalWaveFeedback.gain.setTargetAtTime(0.18 + 0.52 * fxVerticalWave, now, 0.04);
             if (verticalWaveDelay) {
@@ -800,7 +934,7 @@
                 verticalWaveDelay.delayTime.setTargetAtTime(waveDelay, now, 0.035);
             }
 
-            
+            // Horizontal droite : phaser + reverb + delay spatial fort.
             if (phaserWetGain) phaserWetGain.gain.setTargetAtTime(1.28 * fxHorizontal, now, 0.026);
             if (phaserDelayWetGain) phaserDelayWetGain.gain.setTargetAtTime(0.62 * fxHorizontal, now, 0.035);
             if (phaserDelayFeedback) phaserDelayFeedback.gain.setTargetAtTime(0.14 + 0.56 * fxHorizontal, now, 0.035);
@@ -816,7 +950,7 @@
                 });
             }
 
-            
+            // Horizontal gauche : sweep filtré / mouvement spectral opposé.
             if (horizontalSweepWetGain) horizontalSweepWetGain.gain.setTargetAtTime(0.98 * fxHorizontalAlt, now, 0.03);
             if (horizontalSweepFilter) {
                 const sweep = 520 + 3600 * (0.5 + 0.5 * Math.sin(performance.now() * 0.007));
@@ -830,7 +964,7 @@
             if (bitcrusherWetGain) bitcrusherWetGain.gain.setTargetAtTime(0.70 * fxGlitch, now, 0.018);
 
             if (localAudioElement) {
-                
+                // Slow down plus accessible : plage étendue et retour progressif.
                 const targetRate = Math.max(0.42, Math.min(1.75, 1.0 + fxSpeed * 0.68 + fxGlitch * 0.06));
                 localAudioElement.playbackRate += (targetRate - localAudioElement.playbackRate) * 0.24;
             }
@@ -843,6 +977,7 @@
         }
 
         function spawnElectricDust(x, y, count, hueBase) {
+            count = Math.min(count, window.innerWidth < 768 ? 10 : 16);
             for (let i = 0; i < count; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 0.7 + Math.random() * 2.2;
@@ -851,14 +986,15 @@
                     y,
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
-                    alpha: 0.85,
-                    decay: 0.015 + Math.random() * 0.018,
-                    size: 0.5 + Math.random() * 1.2,
+                    alpha: 0.78,
+                    decay: 0.018 + Math.random() * 0.020,
+                    size: 0.45 + Math.random() * 0.9,
                     hue: hueBase + (Math.random() - 0.5) * 35,
                     isFirework: true,
-                    friction: 0.965
+                    friction: 0.955
                 });
             }
+            if (sparks.length > MAX_SPARKS) sparks.splice(0, sparks.length - MAX_SPARKS);
         }
 
         function handleGestureMove(x, y, isTouch = false) {
@@ -883,14 +1019,16 @@
             const totalAbsX = Math.abs(totalDx);
             const totalAbsY = Math.abs(totalDy);
 
-
+            // Plus sensible sur tactile, car les mouvements sont plus courts que sur souris.
             const minMove = isTouch ? 4 : 8;
             const minDiagonal = isTouch ? 6 : 10;
             const intensity = Math.min(1.0, Math.max(distance, totalDistance * 0.18) / (isTouch ? 14 : 22));
 
             if (speed > (isTouch ? 1.35 : 1.65) && distance > (isTouch ? 16 : 24)) triggerGlitch();
 
-
+            // Classification mobile :
+            // On utilise le mouvement total depuis le début du toucher pour éviter qu'un swipe diagonal
+            // soit découpé en petits segments verticaux/horizontaux.
             const diagonalRatio = Math.min(totalAbsX, totalAbsY) / Math.max(totalAbsX || 1, totalAbsY || 1);
             const isDiagonal = totalDistance > minDiagonal && totalAbsX > minMove && totalAbsY > minMove && diagonalRatio > (isTouch ? 0.22 : 0.34);
 
@@ -989,7 +1127,8 @@
                 localAudioElement.playsInline = true;
                 localAudioElement.volume = 1.0;
 
-
+                // Permet un effet plus "DJ/tape" quand on joue avec la vitesse.
+                // Selon les navigateurs, ces propriétés peuvent être ignorées sans casser la page.
                 localAudioElement.preservesPitch = false;
                 localAudioElement.mozPreservesPitch = false;
                 localAudioElement.webkitPreservesPitch = false;
@@ -1004,6 +1143,9 @@
 
                 localAudioElement.addEventListener('ended', () => {
                     isPlaying = false;
+                    localAudioElement.currentTime = 0;
+                    progressSlider.value = 0;
+                    currentTimeLabel.innerText = "0:00";
                     updatePlayerIcons();
                 });
 
@@ -1070,6 +1212,9 @@
                 if (!localAudioElement) return;
 
                 if (localAudioElement.paused) {
+                    if (!isNaN(localAudioElement.duration) && localAudioElement.currentTime >= localAudioElement.duration - 0.08) {
+                        localAudioElement.currentTime = 0;
+                    }
                     localAudioElement.play().then(() => {
                         isPlaying = true;
                         updatePlayerIcons();
@@ -1134,6 +1279,17 @@
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            const bgCX = canvas.width * 0.5;
+            const bgCY = canvas.height * 0.52;
+            const bgR = Math.max(canvas.width, canvas.height) * 0.82;
+            const bg = ctx.createRadialGradient(bgCX, bgCY, 0, bgCX, bgCY, bgR);
+            bg.addColorStop(0, 'rgba(6, 15, 28, 0.72)');
+            bg.addColorStop(0.28, 'rgba(3, 8, 18, 0.50)');
+            bg.addColorStop(0.64, 'rgba(0, 1, 5, 0.92)');
+            bg.addColorStop(1, 'rgba(0,0,0,1)');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
             let bass = 0;
             let mid = 0;
             let high = 0;
@@ -1159,7 +1315,7 @@
             smoothHigh += (high - smoothHigh) * 0.16;
 
             if (fxIsHeld) {
-                
+                // Pendant que l'utilisateur maintient le doigt/la souris, les effets restent jouables.
                 fxVertical *= 0.992;
                 fxVerticalWave *= 0.992;
                 fxHorizontal *= 0.994;
@@ -1167,7 +1323,7 @@
                 fxDiagonal *= 0.990;
                 fxSpeed *= 0.994;
             } else {
-               
+                // Au relâchement, les effets et la vitesse reviennent naturellement à la normale.
                 fxVertical *= 0.88;
                 fxVerticalWave *= 0.88;
                 fxHorizontal *= 0.88;
@@ -1180,7 +1336,7 @@
             fxTapEcho *= 0.965;
             updateAudioFx();
 
-           
+            // Dynamique vivante du trou noir
             bhPulse += (smoothBass * 0.8 + smoothMid * 0.2 - bhPulse) * 0.15;
             bhRotation += 0.0018 + smoothBass * 0.007 + fxDiagonal * 0.004;
             bhOrbital[0] += 0.0055 + smoothBass * 0.010;
@@ -1215,21 +1371,21 @@
                 hoverIntensity += (0.0 - hoverIntensity) * 0.06;
             }
 
-            
+            // Génération procédurale bimodale basée sur le rythme
             if (smoothBass > 0.15) {
                 const sparkCount = Math.floor((smoothBass + fxVertical * 0.12 + fxDiagonal * 0.08) * (window.innerWidth < 768 ? 3 : 6)); 
                 for (let k = 0; k < sparkCount; k++) {
                     const angle = Math.random() * Math.PI * 2;
                     
-                    
+                    // 25% de chances de générer une étincelle type "feu d'artifice" à haute énergie
                     const isFirework = Math.random() < 0.25; 
                     
                     let radialSpeed, swirlSpeed, decay, friction;
                     if (isFirework) {
-                        radialSpeed = 3.0 + smoothBass * 4.5; 
-                        swirlSpeed = (Math.random() - 0.5) * 1.0;  
-                        decay = 0.005 + Math.random() * 0.007;     
-                        friction = 0.985;                          
+                        radialSpeed = 3.0 + smoothBass * 4.5; // Vélocité d'échappement élevée
+                        swirlSpeed = (Math.random() - 0.5) * 1.0;  // Trajectoire plus rectiligne vers l'extérieur
+                        decay = 0.005 + Math.random() * 0.007;     // Durée de vie plus longue pour s'éloigner du centre
+                        friction = 0.985;                          // Moins de résistance pour préserver l'impulsion
                     } else {
                         radialSpeed = 0.3 + smoothBass * 1.2;
                         swirlSpeed = (1.2 + smoothMid * 3.5) * (Math.random() > 0.5 ? 1 : -1);
@@ -1252,12 +1408,14 @@
                 }
             }
 
+            if (sparks.length > MAX_SPARKS) sparks.splice(0, sparks.length - MAX_SPARKS);
+
             if (useBufferMode && isPlaying && audioCtx) {
                 const currentSecs = audioCtx.currentTime - startTime;
                 updateProgressUI(currentSecs, audioBuffer.duration);
             }
 
-            
+            // 1. Rendu du Halo (Glow) Arrière
             const glowGrad = ctx.createRadialGradient(coreX, coreY, holeRadius * 0.5, coreX, coreY, glowRadius);
             glowGrad.addColorStop(0, `hsla(${baseHue + fxVertical * 25 + fxVerticalWave * 70}, 90%, 55%, ${0.28 * (0.6 + smoothBass * 0.4 + fxHorizontal * 0.85 + fxVerticalWave * 0.45)})`);
             glowGrad.addColorStop(0.25, `hsla(${baseHue + 25 + fxDiagonal * 25 + fxSpeed * 55 + fxHorizontalAlt * 90}, 85%, 45%, ${0.12 * (0.5 + smoothMid * 0.5 + fxHorizontal * 1.25 + fxHorizontalAlt * 0.9 + Math.abs(fxSpeed) * 0.8)})`);
@@ -1268,7 +1426,7 @@
             ctx.arc(coreX, coreY, glowRadius, 0, Math.PI * 2);
             ctx.fill();
 
-            
+            // 2. Rendu de la Matrice Quantique de Points
             ctx.globalCompositeOperation = 'source-over';
             for (let r = 0; r < totalRays; r++) {
                 const baseAngle = (r / totalRays) * Math.PI * 2 + (time * (0.015 + fxDiagonal * 0.045 + fxSpeed * 0.11));
@@ -1312,7 +1470,7 @@
                 }
             }
 
-
+            // 3. Physique & Rendu cinétique des étincelles (Accrétion + Éjection Feu d'Artifice)
             ctx.globalCompositeOperation = 'lighter'; 
             for (let i = sparks.length - 1; i >= 0; i--) {
                 const p = sparks[i];
@@ -1322,14 +1480,14 @@
                 const dist = Math.hypot(dx, dy);
                 
                 if (dist > 10) {
-                    
+                    // Les particules de type feu d'artifice subissent une gravité atténuée (15%) pour permettre l'éjection
                     const gravityFactor = p.isFirework ? 0.15 : 1.0;
                     const pull = ((0.04 + smoothBass * 0.08) / (dist * 0.008)) * gravityFactor;
                     p.vx -= (dx / dist) * pull;
                     p.vy -= (dy / dist) * pull;
                 }
                 
-
+                // Intégration cinétique et ajout de turbulences corrélées aux médiums
                 p.x += p.vx + (Math.sin(p.y * 0.04 + time) * 0.15 * smoothMid);
                 p.y += p.vy + (Math.cos(p.x * 0.04 + time) * 0.15 * smoothMid);
                 
@@ -1345,13 +1503,14 @@
                 ctx.fillStyle = `hsla(${p.hue}, 100%, 82%, ${p.alpha})`;
                 ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
                 
-                if (p.size > 1.1) {
-                    ctx.fillStyle = `hsla(${p.hue}, 100%, 65%, ${p.alpha * 0.25})`;
+                if (p.size > 1.1 && i % 2 === 0) {
+                    ctx.fillStyle = `hsla(${p.hue}, 100%, 65%, ${p.alpha * 0.18})`;
                     ctx.fillRect(p.x - p.size, p.y - p.size, p.size * 2, p.size * 2);
                 }
             }
             
 
+            // 3B. Arcs électriques liés au geste vertical / flanger
             if (fxVertical > 0.04) {
                 ctx.globalCompositeOperation = 'lighter';
                 const arcCount = window.innerWidth < 768 ? 6 : 11;
@@ -1377,6 +1536,7 @@
                 }
             }
 
+            // 3B2. Vagues sonores ondulatoires liées au geste vertical opposé
             if (fxVerticalWave > 0.04) {
                 ctx.globalCompositeOperation = 'lighter';
                 const waveCount = window.innerWidth < 768 ? 3 : 5;
@@ -1390,6 +1550,8 @@
                 }
             }
 
+            // 3C. Micro-lueur douce liée au glitch / mouvement rapide.
+            // Pas de flash blanc violent : sécurité visuelle améliorée.
             if (fxFlash > 0.03) {
                 ctx.globalCompositeOperation = 'screen';
                 const glitchGlow = ctx.createRadialGradient(coreX, coreY, 0, coreX, coreY, glowRadius * 0.85);
@@ -1402,7 +1564,7 @@
                 ctx.fill();
             }
 
-
+            // 3D. Ondes d'énergie lumineuse déclenchées au clic / tactile
             ctx.globalCompositeOperation = 'lighter';
             for (let w = energyWaves.length - 1; w >= 0; w--) {
                 const wave = energyWaves[w];
@@ -1440,7 +1602,7 @@
 
             ctx.globalCompositeOperation = 'source-over'; 
 
-
+            // 4. Disque d'accrétion vivant – anneaux contra-rotatifs + points chauds orbitaux
             ctx.globalCompositeOperation = 'lighter';
             const ringCount = window.innerWidth < 768 ? 3 : 5;
             for (let j = 0; j < ringCount; j++) {
@@ -1468,7 +1630,7 @@
                 ctx.stroke();
             }
 
-            
+            // Anneau photonique – halo lumineux à l'horizon des événements
             {
                 const pr = holeRadius * (1.016 + bhPulse * 0.058);
                 const pa = 0.42 + smoothBass * 0.38 + bhPulse * 0.22;
@@ -1482,6 +1644,7 @@
                 ctx.fill();
             }
 
+            // Points chauds orbitaux – lumière tournant autour du centre
             const _hsR = [holeRadius * 1.052, holeRadius * 1.108, holeRadius * 1.076];
             const _hsH = [baseHue + 18, baseHue - 25, baseHue + 50];
             const _hsS = [3.8, 3.0, 2.4];
@@ -1500,9 +1663,10 @@
                 ctx.fill();
             }
 
-
+            // 5. Distorsion gravitationnelle & Singularité organique
             ctx.globalCompositeOperation = 'source-over';
 
+            // Lentille gravitationnelle – zone de noircissement profond
             const lensingGrad = ctx.createRadialGradient(coreX, coreY, holeRadius * 0.86, coreX, coreY, holeRadius * 1.50);
             lensingGrad.addColorStop(0,    'rgba(0,0,0,0.97)');
             lensingGrad.addColorStop(0.26, 'rgba(0,0,0,0.84)');
@@ -1513,6 +1677,7 @@
             ctx.arc(coreX, coreY, holeRadius * 1.50, 0, Math.PI * 2);
             ctx.fill();
 
+            // Corona subtile – lueur bleue-violette de l'horizon
             ctx.globalCompositeOperation = 'lighter';
             {
                 const cr = holeRadius * (1.0 + bhPulse * 0.044);
@@ -1527,6 +1692,7 @@
                 ctx.fill();
             }
 
+            // Horizon des événements organique – contour légèrement ondulé
             ctx.globalCompositeOperation = 'source-over';
             const _wa = 0.010 + smoothMid * 0.016 + bhPulse * 0.011;
             const _hp = 56;
@@ -1544,6 +1710,7 @@
             }
             ctx.closePath();
 
+            // Remplissage multi-couche avec illusion de profondeur (source lumineuse décalée)
             const depthGrad = ctx.createRadialGradient(
                 coreX - holeRadius * 0.22, coreY - holeRadius * 0.18, holeRadius * 0.04,
                 coreX, coreY, holeRadius
